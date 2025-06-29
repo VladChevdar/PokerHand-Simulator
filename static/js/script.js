@@ -1,7 +1,10 @@
 // Card validation and display logic
 const VALID_RANKS = "23456789TJQKA";
 const VALID_SUITS = "HDCS";
-const SUIT_SYMBOLS = {'H': '♥', 'D': '♦', 'C': '♣', 'S': '♠'};
+const SUIT_SYMBOLS = {
+    'H': '♥', 'D': '♦', 'C': '♣', 'S': '♠',
+    'h': '♥', 'd': '♦', 'c': '♣', 's': '♠'
+};
 
 let playerCount = 2;
 
@@ -9,6 +12,7 @@ let playerCount = 2;
 document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     updateCardDisplays();
+    addRandomButtonsToInitialPlayers();
 });
 
 function setupEventListeners() {
@@ -129,6 +133,7 @@ function addPlayer() {
     newPlayer.innerHTML = `
         <div class="player-header">
             <h3>Player ${playerCount}</h3>
+            <button class="random-player" onclick="randomizePlayerHand(this)">🎲 Random</button>
             <button class="remove-player" onclick="removePlayer(this)">×</button>
         </div>
         <div class="card-inputs">
@@ -339,4 +344,62 @@ async function runSimulation() {
     } finally {
         hideLoading();
     }
+}
+
+// Add random button to initial players on DOMContentLoaded
+function addRandomButtonsToInitialPlayers() {
+    document.querySelectorAll('.player-hand').forEach(playerHand => {
+        const header = playerHand.querySelector('.player-header');
+        if (!header.querySelector('.random-player')) {
+            const randomBtn = document.createElement('button');
+            randomBtn.className = 'random-player';
+            randomBtn.textContent = '🎲 Random';
+            randomBtn.onclick = function() { randomizePlayerHand(randomBtn); };
+            header.insertBefore(randomBtn, header.querySelector('.remove-player'));
+        }
+    });
+}
+
+function getAllUsedCards(excludeInputs = []) {
+    // Collect all cards from all player and community inputs, except those in excludeInputs
+    const used = new Set();
+    document.querySelectorAll('.card-input').forEach(input => {
+        if (excludeInputs.includes(input)) return;
+        const val = input.value.trim().toUpperCase();
+        if (val.length === 2 && VALID_RANKS.includes(val[0]) && VALID_SUITS.includes(val[1])) {
+            used.add(val);
+        }
+    });
+    return used;
+}
+
+function getRandomCard(used) {
+    const deck = [];
+    for (let r of VALID_RANKS) {
+        for (let s of VALID_SUITS) {
+            const card = r + s;
+            if (!used.has(card)) deck.push(card);
+        }
+    }
+    if (deck.length === 0) return null;
+    return deck[Math.floor(Math.random() * deck.length)];
+}
+
+function randomizePlayerHand(button) {
+    const playerHand = button.closest('.player-hand');
+    const inputs = playerHand.querySelectorAll('.card-input');
+    // Exclude this player's inputs from used cards (so we can overwrite them)
+    const used = getAllUsedCards(Array.from(inputs));
+    // Pick two random cards
+    let card1 = getRandomCard(used);
+    if (!card1) return;
+    used.add(card1);
+    let card2 = getRandomCard(used);
+    if (!card2) return;
+    // Fill inputs
+    inputs[0].value = card1;
+    inputs[1].value = card2;
+    validateCard(inputs[0]);
+    validateCard(inputs[1]);
+    updateCardDisplays();
 } 
