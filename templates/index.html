@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poker Hand Simulator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🃏 Poker Hand Simulator</h1>
+            <p>Calculate win probabilities for Texas Hold'em hands</p>
+        </header>
+
+        <div class="main-content">
+            <div class="setup-section">
+                <div class="card-input-section">
+                    <h2>Player Hands</h2>
+                    <div id="player-hands" class="player-hands">
+                        <div class="player-hand" data-player="1">
+                            <div class="player-header">
+                                <h3>Player 1</h3>
+                                <button class="remove-player" onclick="removePlayer(this)">×</button>
+                            </div>
+                            <div class="card-inputs">
+                                <input type="text" class="card-input" placeholder="e.g., AH" maxlength="2" data-card="1">
+                                <input type="text" class="card-input" placeholder="e.g., KS" maxlength="2" data-card="2">
+                            </div>
+                            <div class="card-display"></div>
+                        </div>
+                        <div class="player-hand" data-player="2">
+                            <div class="player-header">
+                                <h3>Player 2</h3>
+                                <button class="remove-player" onclick="removePlayer(this)">×</button>
+                            </div>
+                            <div class="card-inputs">
+                                <input type="text" class="card-input" placeholder="e.g., QD" maxlength="2" data-card="1">
+                                <input type="text" class="card-input" placeholder="e.g., JC" maxlength="2" data-card="2">
+                            </div>
+                            <div class="card-display"></div>
+                        </div>
+                    </div>
+                    <button id="add-player" class="btn btn-secondary">+ Add Player</button>
+                </div>
+
+                <div class="community-cards-section">
+                    <h2>Community Cards (Optional)</h2>
+                    <div class="community-cards">
+                        <input type="text" class="card-input" placeholder="Flop 1" maxlength="2" data-community="1">
+                        <input type="text" class="card-input" placeholder="Flop 2" maxlength="2" data-community="2">
+                        <input type="text" class="card-input" placeholder="Flop 3" maxlength="2" data-community="3">
+                        <input type="text" class="card-input" placeholder="Turn" maxlength="2" data-community="4">
+                        <input type="text" class="card-input" placeholder="River" maxlength="2" data-community="5">
+                    </div>
+                    <div class="community-display"></div>
+                </div>
+
+                <div class="simulation-settings">
+                    <h2>Simulation Settings</h2>
+                    <div class="setting-group">
+                        <label for="simulations">Number of Simulations:</label>
+                        <select id="simulations">
+                            <option value="1000">1,000 (Fast)</option>
+                            <option value="10000" selected>10,000 (Standard)</option>
+                            <option value="50000">50,000 (Accurate)</option>
+                            <option value="100000">100,000 (Very Accurate)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="run-simulation" class="btn btn-primary">Run Simulation</button>
+            </div>
+
+            <div id="results" class="results-section" style="display: none;">
+                <h2>📊 Results</h2>
+                <div id="results-content"></div>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Running simulation...</p>
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h3>💡 How to use</h3>
+            <div class="help-content">
+                <div class="help-item">
+                    <strong>Card Format:</strong> Use 2-character format: Rank + Suit
+                    <br>Ranks: 2-9, T (10), J, Q, K, A
+                    <br>Suits: H (♥), D (♦), C (♣), S (♠)
+                </div>
+                <div class="help-item">
+                    <strong>Examples:</strong> AH (Ace of Hearts), KS (King of Spades), TD (10 of Diamonds)
+                </div>
+                <div class="help-item">
+                    <strong>Community Cards:</strong> Leave empty for pre-flop, or add flop/turn/river cards
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html> 
