@@ -372,46 +372,63 @@ function updateUI() {
 }
 
 function updateHandsDisplay() {
-    const container = document.getElementById('hands-container');
-    if (!container) return;
-    
+    const handsContainer = document.getElementById('hands-container');
     if (!gameState.currentHands || gameState.currentHands.length === 0) {
-        container.innerHTML = '<p class="no-hands">Click "Generate New Hands" to start trading!</p>';
+        handsContainer.innerHTML = '<p class="no-hands">Click "Generate New Hands" to start trading!</p>';
         return;
     }
+
+    handsContainer.innerHTML = '';
     
-    container.innerHTML = gameState.currentHands.map((hand, index) => {
+    // Find the highest probability when all cards are dealt
+    let maxProbability = 0;
+    let winningHandsCount = 0;
+    if (gameState.communityCards.length === 5) {
+        maxProbability = Math.max(...gameState.currentHands.map(h => h.probability));
+        winningHandsCount = gameState.currentHands.filter(h => h.probability === maxProbability).length;
+    }
+    
+    gameState.currentHands.forEach((hand, index) => {
         const isOwned = gameState.ownedHand === index;
-        const cardImages = hand.cards.map(card => `<img src="${getCardImagePath(card)}" alt="${card}" class="card-image">`).join('');
+        const isWinning = gameState.communityCards.length === 5 && hand.probability === maxProbability;
+        const isDraw = isWinning && winningHandsCount > 1;
         
-        return `
-            <div class="hand-card ${isOwned ? 'owned' : ''}">
-                <div class="hand-header">
-                    <span class="hand-title">Hand ${index + 1}</span>
-                    <span class="hand-price">$${hand.price}</span>
-                </div>
-                <div class="hand-cards">
-                    ${cardImages}
-                </div>
-                ${hand.hand_type ? `
+        const handElement = document.createElement('div');
+        handElement.className = `hand-card ${isOwned ? 'owned' : ''} ${isWinning ? 'winning' : ''} ${isDraw ? 'draw' : ''}`;
+        
+        handElement.innerHTML = `
+            <div class="hand-header">
+                <span class="hand-title">Hand ${index + 1}</span>
+                <span class="hand-price">$${hand.price}</span>
+            </div>
+            <div class="hand-cards">
+                ${hand.cards.map(card => `
+                    <img class="card-image" src="${getCardImagePath(card)}" alt="${formatCardForDisplay(card)}" title="${formatCardForDisplay(card)}">
+                `).join('')}
+            </div>
+            ${hand.hand_type ? `
                 <div class="hand-type-display">
-                    <span class="hand-type">${hand.hand_type.name}</span>
-                </div>` : ''}
-                <div class="hand-strength">
-                    <span>Strength</span>
-                    <div class="strength-bar">
-                        <div class="strength-fill" style="width: ${hand.probability}%"></div>
-                    </div>
+                    <span class="hand-type">${hand.hand_type.name || hand.hand_type}</span>
                 </div>
-                <div class="hand-actions">
-                    ${isOwned ? 
-                        `<button class="btn btn-secondary" onclick="sellHand()">Sell $${hand.sell_price}</button>` :
-                        `<button class="btn btn-primary" onclick="buyHand(${index}, ${hand.price})">Buy</button>`
-                    }
+            ` : ''}
+            <div class="hand-strength">
+                <div class="strength-bar">
+                    <div class="strength-fill" style="width: ${hand.probability || 0}%"></div>
                 </div>
+                <span>${hand.probability ? hand.probability.toFixed(1) + '%' : '0%'}</span>
+            </div>
+            <div class="hand-actions">
+                ${isOwned ? 
+                    `<button class="btn btn-warning" onclick="sellHand()">Sell for $${hand.sell_price}</button>` :
+                    `<button class="btn btn-primary" onclick="buyHand(${index}, ${hand.price})" ${gameState.ownedHand !== null || gameState.communityCards.length === 5 ? 'disabled' : ''}>
+                        ${gameState.communityCards.length === 5 ? 'Game Complete' : `Buy for $${hand.price}`}
+                    </button>`
+                }
             </div>
         `;
-    }).join('');
+        
+        handsContainer.appendChild(handElement);
+    });
 }
 
 function updateCommunityCardsDisplay() {

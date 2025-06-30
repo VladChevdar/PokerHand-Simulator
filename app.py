@@ -12,7 +12,7 @@ VALID_RANKS = "23456789TJQKA"
 VALID_SUITS = "shdc"
 
 # Game constants
-STARTING_BALANCE = 1000
+STARTING_BALANCE = 500
 TRANSACTION_FEE_FLAT = 0  # No fee on buy
 GENERATE_HANDS_FEE = 10
 FEE = 0  # No buy/sell fee anymore
