@@ -393,9 +393,10 @@ function updateHandsDisplay() {
                 <div class="hand-cards">
                     ${cardImages}
                 </div>
+                ${hand.hand_type ? `
                 <div class="hand-type-display">
-                    ${hand.hand_type ? `<span class="hand-type">${hand.hand_type.name}</span>` : ''}
-                </div>
+                    <span class="hand-type">${hand.hand_type.name}</span>
+                </div>` : ''}
                 <div class="hand-strength">
                     <span>Strength</span>
                     <div class="strength-bar">
