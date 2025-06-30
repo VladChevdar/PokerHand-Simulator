@@ -154,7 +154,7 @@ async function loadGameState() {
 
 async function generateNewHands() {
     const slider = document.getElementById('num-players-slider');
-    const num = slider ? parseInt(slider.value) : 6;
+    const num = slider ? parseInt(slider.value) : 3;
     
     if (isNaN(num) || num < 2 || num > 10) {
         showMessage('Please enter a valid number between 2 and 10', 'error');

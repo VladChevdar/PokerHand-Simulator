@@ -125,11 +125,19 @@ def simulate_win_probabilities(player_hands, community_cards=[], simulations=100
         # Run simulations for remaining unknown cards
         for _ in range(simulations):
             deck = Deck()
-            # Remove known cards from deck
-            for card in known_cards:
-                deck.cards.remove(card)
-            # Draw only the remaining unknown cards
-            simulated_board = community_eval + deck.draw(remaining_cards_needed)
+            # Remove known cards from deck - create new list instead of removing from existing
+            remaining_deck = []
+            for card_obj in deck.cards:
+                if card_obj not in known_cards:
+                    remaining_deck.append(card_obj)
+            
+            # Draw only the remaining unknown cards from the filtered deck
+            if len(remaining_deck) >= remaining_cards_needed:
+                random.shuffle(remaining_deck)
+                simulated_board = community_eval + remaining_deck[:remaining_cards_needed]
+            else:
+                # Fallback if not enough cards (shouldn't happen in normal play)
+                simulated_board = community_eval
 
             scores = [
                 evaluator.evaluate(hand, simulated_board)
@@ -239,8 +247,22 @@ def generate_hands():
         
         # Store deck for auto dealing
         deck = Deck()
-        used_cards = [card.lower() for hand in hands for card in hand]  # Convert to lowercase for treys
-        deck.cards = [c for c in deck.cards if Card.int_to_str(c) not in used_cards]
+        used_cards = []
+        # Convert all used cards to treys format for proper comparison
+        for hand in hands:
+            for card in hand:
+                # Convert 'AH' -> 'Ah' for treys format
+                treys_card = card[0] + card[1].lower()
+                used_cards.append(treys_card)
+        
+        # Remove used cards from deck (deck.cards contains Card objects)
+        remaining_cards = []
+        for card_obj in deck.cards:
+            card_str = Card.int_to_str(card_obj)
+            if card_str not in used_cards:
+                remaining_cards.append(card_obj)
+        
+        deck.cards = remaining_cards
         session['deck'] = [Card.int_to_str(c).upper() for c in deck.cards]  # Store in uppercase
         session['owned_hand'] = None  # Reset owned hand
         
