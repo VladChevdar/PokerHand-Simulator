@@ -214,6 +214,78 @@ body {
     background: #f0fff4;
 }
 
+/* Winning hand when owned (gold theme) */
+.hand-card.owned.winning:not(.draw) {
+    border-color: #eab308;
+    background: #fefce8;
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.3);
+}
+
+.hand-card.owned.winning:not(.draw) .hand-title {
+    color: #854d0e;
+}
+
+.hand-card.owned.winning:not(.draw)::after {
+    content: "🏆 WINNER";
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    background: #eab308;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+/* Winning hand when not owned (red theme) */
+.hand-card.winning:not(.owned):not(.draw) {
+    border-color: #e53e3e;
+    background: #fff5f5;
+    box-shadow: 0 0 15px rgba(229, 62, 62, 0.3);
+}
+
+.hand-card.winning:not(.owned):not(.draw) .hand-title {
+    color: #9b2c2c;
+}
+
+.hand-card.winning:not(.owned):not(.draw)::after {
+    content: "🏆 WINNER";
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    background: #e53e3e;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+/* Draw state (blue theme) */
+.hand-card.draw {
+    border-color: #3182ce;
+    background: #ebf8ff;
+    box-shadow: 0 0 15px rgba(49, 130, 206, 0.3);
+}
+
+.hand-card.draw .hand-title {
+    color: #2c5282;
+}
+
+.hand-card.draw::after {
+    content: "🤝 DRAW";
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    background: #3182ce;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
 .hand-card.owned::before {
     content: "🎯 OWNED";
     position: absolute;
