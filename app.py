@@ -619,4 +619,4 @@ def get_hand_type(player_hands, community_cards):
     return hand_types
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8080) 
+    app.run(debug=True, port=8081) 
