@@ -251,9 +251,11 @@ body {
 
 .hand-cards {
     display: flex;
+    justify-content: center;
     gap: 8px;
     margin-bottom: 15px;
     flex-wrap: wrap;
+    padding: 10px 0;
 }
 
 .hand-type-display {
@@ -294,6 +296,8 @@ body {
 
 .hand-actions {
     display: flex;
+    justify-content: center;
+    margin-top: 15px;
     gap: 10px;
 }
 
@@ -422,8 +426,18 @@ body {
 
 .transaction-amount {
     font-weight: 600;
-    font-size: 1rem;
-    color: #2d3748;
+    font-size: 1.1rem;
+    margin-left: auto;
+    min-width: 80px;
+    text-align: right;
+}
+
+.transaction-amount.positive {
+    color: #38a169;  /* Green color for positive amounts */
+}
+
+.transaction-amount.negative {
+    color: #e53e3e;  /* Red color for negative amounts */
 }
 
 /* Separator */

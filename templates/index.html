@@ -36,7 +36,7 @@
                 <h2>Poker Trading ♠️&nbsp;&nbsp;📈</h2>
                 <div class="trading-controls">
                     <div class="players-control">
-                        <label for="num-players-slider">Number of Players: <span id="num-players-value">6</span></label>
+                        <label for="num-players-slider">Number of Hands: <span id="num-players-value">6</span></label>
                         <input type="range" id="num-players-slider" min="2" max="10" value="6">
                     </div>
                     <button id="generate-hands" class="btn btn-primary">🎲 Generate New Hands</button>
@@ -84,11 +84,11 @@
             
             <div class="setup-section">
                 <div class="card-input-section">
-                    <h2>Player Hands</h2>
+                    <h2>Hands</h2>
                     <div id="player-hands" class="player-hands">
                         <div class="player-hand" data-player="1">
                             <div class="player-header">
-                                <h3>Player 1</h3>
+                                <h3>Hand 1</h3>
                                 <button class="remove-player" onclick="removePlayer(this)">×</button>
                             </div>
                             <div class="card-inputs">
@@ -99,7 +99,7 @@
                         </div>
                         <div class="player-hand" data-player="2">
                             <div class="player-header">
-                                <h3>Player 2</h3>
+                                <h3>Hand 2</h3>
                                 <button class="remove-player" onclick="removePlayer(this)">×</button>
                             </div>
                             <div class="card-inputs">
@@ -109,7 +109,7 @@
                             <div class="hand-cards"></div>
                         </div>
                     </div>
-                    <button id="add-player" class="btn btn-secondary">+ Add Player</button>
+                    <button id="add-player" class="btn btn-secondary">+ Add Hand</button>
                     <button id="clear-simulator" class="btn btn-danger">🗑️ Clear All</button>
                 </div>
 

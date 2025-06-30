@@ -198,12 +198,18 @@ def generate_hands():
         # Calculate refund for current hand if owned
         refund_amount = 0
         if current_owned_hand is not None:
-            # Get current sell price for the hand
-            hands = session.get('hands', [])
-            if hands and current_owned_hand < len(hands):
-                _, sell_prices, _ = get_dynamic_hand_prices_and_probs()
-                if current_owned_hand < len(sell_prices):
-                    refund_amount = sell_prices[current_owned_hand]
+            # Use the exact price paid when the hand was purchased
+            refund_amount = get_most_recent_buy_price(current_owned_hand)
+            if refund_amount is None:
+                # Fallback to calculated sell price if no buy price found
+                hands = session.get('hands', [])
+                if hands and current_owned_hand < len(hands):
+                    _, sell_prices, _ = get_dynamic_hand_prices_and_probs()
+                    if current_owned_hand < len(sell_prices):
+                        refund_amount = sell_prices[current_owned_hand]
+                    else:
+                        refund_amount = 0
+            refund_amount = refund_amount or 0
         
         # Calculate total cost (fee - refund)
         total_cost = GENERATE_HANDS_FEE - refund_amount
@@ -288,12 +294,18 @@ def buy_hand():
     # Calculate refund for current hand if owned
     refund_amount = 0
     if current_owned_hand is not None:
-        # Get current sell price for the hand
-        hands = session.get('hands', [])
-        if hands and current_owned_hand < len(hands):
-            _, sell_prices, _ = get_dynamic_hand_prices_and_probs()
-            if current_owned_hand < len(sell_prices):
-                refund_amount = sell_prices[current_owned_hand]
+        # Use the exact price paid when the hand was purchased
+        refund_amount = get_most_recent_buy_price(current_owned_hand)
+        if refund_amount is None:
+            # Fallback to calculated sell price if no buy price found
+            hands = session.get('hands', [])
+            if hands and current_owned_hand < len(hands):
+                _, sell_prices, _ = get_dynamic_hand_prices_and_probs()
+                if current_owned_hand < len(sell_prices):
+                    refund_amount = sell_prices[current_owned_hand]
+                else:
+                    refund_amount = 0
+        refund_amount = refund_amount or 0
     
     # Calculate total cost (new hand price - refund)
     total_cost = price - refund_amount

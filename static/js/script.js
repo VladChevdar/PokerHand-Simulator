@@ -223,9 +223,9 @@ async function buyHand(playerIndex, price) {
         
         updateUI();
         if (data.refund_amount && data.refund_amount > 0) {
-            showMessage(`Refunded $${data.refund_amount} for previous hand and bought Player ${playerIndex + 1}'s hand for $${price}!`, 'success');
+            showMessage(`Refunded $${data.refund_amount} for previous hand and bought Hand ${playerIndex + 1} for $${price}!`, 'success');
         } else {
-            showMessage(`Successfully bought Player ${playerIndex + 1}'s hand for $${price}!`, 'success');
+            showMessage(`Successfully bought Hand ${playerIndex + 1} for $${price}!`, 'success');
         }
     } catch (error) {
         showMessage('Error buying hand: ' + error.message, 'error');
@@ -393,7 +393,7 @@ function updateHandsDisplay() {
         return `
             <div class="hand-card ${isOwned ? 'owned' : ''}">
                 <div class="hand-header">
-                    <span class="hand-title">Player ${index + 1}</span>
+                    <span class="hand-title">Hand ${index + 1}</span>
                     <span class="hand-price">$${isOwned ? sellPrice : buyPrice}</span>
                 </div>
                 <div class="hand-cards">
@@ -457,9 +457,9 @@ function updateTransactionHistory() {
 
         const getActionText = (action, player) => {
             switch(action) {
-                case 'buy': return `BUY Player ${player}`;
-                case 'sell': return `SELL Player ${player}`;
-                case 'refund': return `REFUND Player ${player}`;
+                case 'buy': return `BUY Hand ${player}`;
+                case 'sell': return `SELL Hand ${player}`;
+                case 'refund': return `REFUND Hand ${player}`;
                 case 'generate': return 'GENERATE Hands';
                 default: return action;
             }
@@ -472,7 +472,9 @@ function updateTransactionHistory() {
                         ${getActionIcon(transaction.action)} ${getActionText(transaction.action, transaction.player)}
                     </div>
                 </div>
-                <div class="transaction-amount">$${transaction.price}</div>
+                <div class="transaction-amount ${transaction.action.toLowerCase() === 'sell' || transaction.action.toLowerCase() === 'refund' ? 'positive' : 'negative'}">
+                    ${transaction.action.toLowerCase() === 'sell' || transaction.action.toLowerCase() === 'refund' ? '+' : '-'}$${transaction.price}
+                </div>
             </div>
         `;
     }).join('');
@@ -624,7 +626,7 @@ function createCardElement(cardStr) {
 
 function addPlayer() {
     if (playerCount >= 10) {
-        showMessage('Maximum 10 players allowed', 'error');
+        showMessage('Maximum 10 hands allowed', 'error');
         return;
     }
     
@@ -635,7 +637,7 @@ function addPlayer() {
     
     playerHand.innerHTML = `
         <div class="player-header">
-            <h3>Player ${playerCount}</h3>
+            <h3>Hand ${playerCount}</h3>
             <button class="remove-player" onclick="removePlayer(this)">×</button>
         </div>
         <div class="card-inputs">
@@ -658,7 +660,7 @@ function removePlayer(button) {
     const playerHands = document.getElementById('player-hands');
     
     if (playerHands.children.length <= 2) {
-        showMessage('Minimum 2 players required', 'error');
+        showMessage('Minimum 2 hands required', 'error');
         return;
     }
     
@@ -668,7 +670,7 @@ function removePlayer(button) {
     // Renumber remaining players
     document.querySelectorAll('.player-hand').forEach((hand, index) => {
         hand.setAttribute('data-player', index + 1);
-        hand.querySelector('h3').textContent = `Player ${index + 1}`;
+        hand.querySelector('h3').textContent = `Hand ${index + 1}`;
     });
 }
 
@@ -711,7 +713,7 @@ async function runSimulation() {
     const simulations = parseInt(document.getElementById('simulations').value);
     
     if (playerHands.length < 2) {
-        showMessage('Need at least 2 players with valid hands', 'error');
+        showMessage('Need at least 2 hands with valid cards', 'error');
         return;
     }
     
@@ -762,7 +764,7 @@ function displayResults(data) {
                 return `
                     <div class="probability-bar">
                         <div class="player-info">
-                            <span class="player-label">Player ${index + 1}:</span>
+                            <span class="player-label">Hand ${index + 1}:</span>
                             <div class="hand-cards">
                                 ${handCards}
                             </div>
@@ -921,4 +923,34 @@ async function updateHandPrices() {
     } catch (error) {
         // Ignore price update errors for now
     }
+}
+
+function addPlayerToSimulator() {
+    const playerHands = document.getElementById('player-hands');
+    const playerCount = playerHands.children.length + 1;
+    
+    const newHand = document.createElement('div');
+    newHand.className = 'player-hand';
+    newHand.setAttribute('data-player', playerCount);
+    
+    newHand.innerHTML = `
+        <div class="player-header">
+            <h3>Hand ${playerCount}</h3>
+            <button class="remove-player" onclick="removePlayer(this)">×</button>
+        </div>
+        <div class="card-inputs">
+            <input type="text" class="card-input" placeholder="e.g., AH" maxlength="2" data-card="1">
+            <input type="text" class="card-input" placeholder="e.g., KS" maxlength="2" data-card="2">
+        </div>
+        <div class="hand-cards"></div>
+    `;
+    
+    playerHands.appendChild(newHand);
+    
+    // Add event listeners to new inputs
+    newHand.querySelectorAll('.card-input').forEach(input => {
+        input.addEventListener('input', function() {
+            updateCardDisplays();
+        });
+    });
 }
