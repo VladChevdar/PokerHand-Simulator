@@ -9,31 +9,36 @@
 </head>
 <body>
     <div class="container">
-        <header class="header">
-            <h1>🃏 Poker Trading Game</h1>
-            <p>Buy and sell poker hands as the community cards are revealed!</p>
+        <!-- Game Header -->
+        <header class="game-header">
+            <div class="logo">
+                <h1>Poker Trading Game</h1>
+            </div>
+            <p class="subtitle">Buy and sell poker hands as the community cards are revealed!</p>
         </header>
 
         <!-- Game State Display -->
         <div class="game-state">
+            <div class="game-state-left"><!-- Empty left section --></div>
             <div class="balance-display">
                 <span class="balance-label">💰 Balance:</span>
                 <span id="current-balance" class="balance-amount">$1000</span>
+                <span id="session-profit" class="session-profit"></span>
             </div>
-            <div class="owned-hand-display">
-                <span class="owned-label">🎯 Owned Hand:</span>
-                <span id="owned-hand-info" class="owned-info">None</span>
+            <div class="game-state-right">
+                <button id="reset-game" class="btn btn-warning">⌫  Reset Game</button>
             </div>
-            <button id="reset-game" class="btn btn-warning">⌫  Reset Game</button>
         </div>
 
         <!-- Trading Game Section -->
         <div class="trading-section">
             <div class="trading-header">
-                <h2>Poker ♠️&nbsp;&nbsp;♥️&nbsp;&nbsp;♦️&nbsp;&nbsp;♣️</h2>
+                <h2>Poker Trading ♠️&nbsp;&nbsp;📈</h2>
                 <div class="trading-controls">
-                    <label for="num-players-slider" style="margin-right:10px;font-weight:500;">Number of Players: <span id="num-players-value">6</span></label>
-                    <input type="range" id="num-players-slider" min="2" max="10" value="6" style="vertical-align:middle;width:120px;">
+                    <div class="players-control">
+                        <label for="num-players-slider">Number of Players: <span id="num-players-value">6</span></label>
+                        <input type="range" id="num-players-slider" min="2" max="10" value="6">
+                    </div>
                     <button id="generate-hands" class="btn btn-primary">🎲 Generate New Hands</button>
                 </div>
             </div>
@@ -48,7 +53,7 @@
 
             <!-- Board (Flop, Turn, River) -->
             <div class="community-section">
-                <h3>The Board</h3>
+                <h3>Texas Hold'em</h3>
                 <div id="community-cards-display" class="community-cards-display">
                     <p class="no-community">No board cards yet</p>
                 </div>
@@ -74,7 +79,7 @@
 
         <!-- Original Simulator Section -->
         <div class="simulator-section">
-            <h2>🔬 Hand Simulator</h2>
+            <h2>🎲 Hand Simulator</h2>
             <p>Calculate win probabilities for custom hands</p>
             
             <div class="setup-section">
@@ -105,18 +110,18 @@
                         </div>
                     </div>
                     <button id="add-player" class="btn btn-secondary">+ Add Player</button>
+                    <button id="clear-simulator" class="btn btn-danger">🗑️ Clear All</button>
                 </div>
 
                 <div class="community-cards-section">
-                    <h2>Community Cards (Optional)</h2>
-                    <div class="community-cards">
-                        <input type="text" class="card-input" placeholder="Flop 1" maxlength="2" data-community="1">
-                        <input type="text" class="card-input" placeholder="Flop 2" maxlength="2" data-community="2">
-                        <input type="text" class="card-input" placeholder="Flop 3" maxlength="2" data-community="3">
-                        <input type="text" class="card-input" placeholder="Turn" maxlength="2" data-community="4">
-                        <input type="text" class="card-input" placeholder="River" maxlength="2" data-community="5">
+                    <h3>Community Cards (Optional)</h3>
+                    <div class="community-inputs">
+                        <input type="text" class="card-input community-card" placeholder="FLOP 1">
+                        <input type="text" class="card-input community-card" placeholder="FLOP 2">
+                        <input type="text" class="card-input community-card" placeholder="FLOP 3">
+                        <input type="text" class="card-input community-card" placeholder="TURN">
+                        <input type="text" class="card-input community-card" placeholder="RIVER">
                     </div>
-                    <div class="community-display"></div>
                 </div>
 
                 <div class="simulation-settings">

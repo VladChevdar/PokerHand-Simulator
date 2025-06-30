@@ -4,7 +4,8 @@ let gameState = {
     ownedHand: null,
     currentHands: [],
     communityCards: [],
-    gameHistory: []
+    gameHistory: [],
+    sessionProfit: 0  // Track profit for current trading session
 };
 
 // Card validation and display logic
@@ -58,6 +59,20 @@ document.addEventListener('DOMContentLoaded', function() {
             label.textContent = slider.value;
         });
     }
+
+    // Add event listeners for player hand inputs
+    document.querySelectorAll('.player-hand .card-input').forEach(input => {
+        input.addEventListener('input', function() {
+            updateCardDisplays();
+        });
+    });
+
+    // Add event listeners for community card inputs
+    document.querySelectorAll('.community-card').forEach(input => {
+        input.addEventListener('input', function() {
+            updateCardDisplays();
+        });
+    });
 });
 
 function setupEventListeners() {
@@ -82,6 +97,43 @@ function setupEventListeners() {
         if (e.target.classList.contains('card-input')) {
             e.target.value = e.target.value.toUpperCase();
             validateCard(e.target);
+        }
+    });
+
+    // Add event listener for clear simulator button
+    document.getElementById('clear-simulator').addEventListener('click', function() {
+        // Clear all player hand inputs and their card displays
+        const playerHands = document.querySelectorAll('.player-hand');
+        playerHands.forEach(playerHand => {
+            // Clear inputs
+            const inputs = playerHand.querySelectorAll('.card-input');
+            inputs.forEach(input => {
+                input.value = '';
+            });
+            
+            // Clear card images
+            const handCards = playerHand.querySelector('.hand-cards');
+            if (handCards) {
+                handCards.innerHTML = '';
+            }
+        });
+        
+        // Clear all community card inputs and their displays
+        const communityInputs = document.querySelectorAll('.community-card');
+        communityInputs.forEach(input => {
+            input.value = '';
+        });
+        
+        // Clear community card display
+        const communityDisplay = document.querySelector('.community-display');
+        if (communityDisplay) {
+            communityDisplay.remove();
+        }
+        
+        // Clear results if they exist
+        const resultsDiv = document.getElementById('results');
+        if (resultsDiv) {
+            resultsDiv.style.display = 'none';
         }
     });
 }
@@ -130,6 +182,8 @@ async function generateNewHands() {
         gameState.communityCards = [];
         gameState.ownedHand = null;
         gameState.gameHistory = data.game_history || gameState.gameHistory;
+        gameState.sessionProfit = -10;  // Reset profit and account for generate fee
+        
         updateUI();
         if (data.refund_amount && data.refund_amount > 0) {
             showMessage(`Refunded $${data.refund_amount} for previous hand and generated ${num} new hands!`, 'success');
@@ -164,6 +218,8 @@ async function buyHand(playerIndex, price) {
         gameState.balance = data.balance;
         gameState.ownedHand = data.owned_hand;
         gameState.gameHistory = data.game_history || gameState.gameHistory;
+        
+        // Don't update session profit on buy - will be calculated when cards are dealt
         
         updateUI();
         if (data.refund_amount && data.refund_amount > 0) {
@@ -202,12 +258,17 @@ async function sellHand() {
             return;
         }
         
+        const oldBalance = gameState.balance;
         gameState.balance = data.balance;
         gameState.ownedHand = data.owned_hand;
         gameState.gameHistory = data.game_history || gameState.gameHistory;
         
+        // Update session profit
+        const balanceChange = data.balance - oldBalance;
+        gameState.sessionProfit += balanceChange;
+        
         updateUI();
-        showMessage(`Sold your hand for $${currentPrice}!`, 'success');
+        showMessage(`Successfully sold hand for $${currentPrice}!`, 'success');
     } catch (error) {
         showMessage('Error selling hand: ' + error.message, 'error');
     }
@@ -220,26 +281,37 @@ async function resetGame() {
     
     try {
         const response = await fetch('/api/reset-game', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
+            method: 'POST'
         });
+        
+        if (!response.ok) {
+            throw new Error('Failed to reset game');
+        }
         
         const data = await response.json();
         
-        if (data.success) {
-            gameState.balance = data.balance;
-            gameState.ownedHand = data.owned_hand;
-            gameState.currentHands = [];
-            gameState.communityCards = [];
-            gameState.gameHistory = [];
-            
-            updateUI();
-            showMessage('Game reset successfully!', 'success');
-        }
+        // Reset game state
+        gameState.balance = data.balance;
+        gameState.ownedHand = null;
+        gameState.currentHands = [];
+        gameState.communityCards = [];
+        gameState.gameHistory = [];
+        gameState.sessionProfit = 0; // Reset session profit to 0
+        
+        // Clear UI
+        document.getElementById('hands-container').innerHTML = '<p class="no-hands">Click "Generate New Hands" to start trading!</p>';
+        document.getElementById('community-cards-display').innerHTML = '<p class="no-community">No board cards yet</p>';
+        document.getElementById('transaction-history').innerHTML = '<p class="no-history">No transactions yet</p>';
+        
+        // Update UI
+        updateUI();
+        
+        // Show success message
+        showMessage('Game reset successfully!', 'success');
+        
     } catch (error) {
-        showMessage('Error resetting game: ' + error.message, 'error');
+        console.error('Error resetting game:', error);
+        showMessage('Failed to reset game', 'error');
     }
 }
 
@@ -257,15 +329,17 @@ function calculateCurrentPrice(handData, communityCards) {
 }
 
 function updateUI() {
-    // Update balance and owned hand display
+    // Update balance display
     document.getElementById('current-balance').textContent = `$${gameState.balance}`;
     
-    if (gameState.ownedHand !== null) {
-        const ownedHand = gameState.currentHands[gameState.ownedHand];
-        document.getElementById('owned-hand-info').textContent = `Player ${gameState.ownedHand + 1}`;
-    } else {
-        document.getElementById('owned-hand-info').textContent = 'None';
-    }
+    // Update profit display with color based on profit/loss
+    const profitDisplay = document.getElementById('session-profit');
+    const profitText = gameState.sessionProfit >= 0 ? `+$${gameState.sessionProfit}` : `-$${Math.abs(gameState.sessionProfit)}`;
+    profitDisplay.textContent = profitText;
+    profitDisplay.className = `session-profit ${gameState.sessionProfit >= 0 ? 'profit' : 'loss'}`;
+    
+    // Clear any text in game-state-left
+    document.querySelector('.game-state-left').textContent = '';
     
     // Update hands display
     updateHandsDisplay();
@@ -481,39 +555,55 @@ function handleCardInput(input) {
 function updateCardDisplays() {
     // Update player hand displays
     document.querySelectorAll('.player-hand').forEach(playerHand => {
-        const display = playerHand.querySelector('.hand-cards');
         const inputs = playerHand.querySelectorAll('.card-input');
+        const handCards = playerHand.querySelector('.hand-cards');
+        handCards.innerHTML = '';
         
-        display.innerHTML = '';
         inputs.forEach(input => {
-            const card = validateCard(input);
-            if (card) {
-                const imagePath = getCardImagePath(card);
-                const cardElement = document.createElement('div');
-                cardElement.className = 'card';
-                cardElement.style.backgroundImage = `url('${imagePath}')`;
-                cardElement.setAttribute('data-card', card);
-                display.appendChild(cardElement);
+            const card = input.value.toUpperCase();
+            if (isValidCard(card)) {
+                const img = document.createElement('img');
+                img.src = `/static/img/cards/PNG/${card}.png`;
+                img.alt = card;
+                img.className = 'card-image';
+                handCards.appendChild(img);
             }
         });
     });
+
+    // Update community card displays
+    const communityInputs = document.querySelectorAll('.community-card');
+    const communityDisplay = document.createElement('div');
+    communityDisplay.className = 'community-display';
     
-    // Update community cards display
-    const communityDisplay = document.querySelector('.community-display');
-    const communityInputs = document.querySelectorAll('.community-cards .card-input');
-    
-    communityDisplay.innerHTML = '';
     communityInputs.forEach(input => {
-        const card = validateCard(input);
-        if (card) {
-            const imagePath = getCardImagePath(card);
-            const cardElement = document.createElement('div');
-            cardElement.className = 'card';
-            cardElement.style.backgroundImage = `url('${imagePath}')`;
-            cardElement.setAttribute('data-card', card);
-            communityDisplay.appendChild(cardElement);
+        const card = input.value.toUpperCase();
+        if (isValidCard(card)) {
+            const img = document.createElement('img');
+            img.src = `/static/img/cards/PNG/${card}.png`;
+            img.alt = card;
+            img.className = 'card-image';
+            communityDisplay.appendChild(img);
         }
     });
+
+    // Replace or append the community display
+    const communitySection = document.querySelector('.community-cards-section');
+    const existingDisplay = communitySection.querySelector('.community-display');
+    if (existingDisplay) {
+        communitySection.replaceChild(communityDisplay, existingDisplay);
+    } else {
+        communitySection.appendChild(communityDisplay);
+    }
+}
+
+function isValidCard(card) {
+    if (!card || card.length !== 2) return false;
+    const rank = card[0];
+    const suit = card[1];
+    const validRanks = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    const validSuits = ['H', 'D', 'C', 'S'];
+    return validRanks.includes(rank) && validSuits.includes(suit);
 }
 
 function createCardElement(cardStr) {
@@ -774,45 +864,46 @@ function randomizePlayerHand(button) {
 
 async function nextCommunityCard() {
     if (gameState.ownedHand === null) {
-        showMessage('You must buy a hand before dealing board cards!', 'error');
+        showMessage('You must own a hand to see community cards!', 'error');
         return;
     }
+    
     try {
+        // Store the current sell price before dealing new card
+        const oldSellPrice = gameState.currentHands[gameState.ownedHand].sell_price || 
+                           gameState.currentHands[gameState.ownedHand].price || 0;
+        
         const response = await fetch('/api/next-community', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            method: 'POST'
         });
+        
         const data = await response.json();
+        
         if (data.error) {
             showMessage(data.error, 'error');
             return;
         }
+        
+        gameState.currentHands = data.hands;
         gameState.communityCards = data.community_cards;
         
-        // Update hand data with new prices and probabilities
-        if (data.hands && Array.isArray(data.hands)) {
-            for (let i = 0; i < data.hands.length; i++) {
-                if (i < gameState.currentHands.length) {
-                    gameState.currentHands[i].price = data.hands[i].price;
-                    gameState.currentHands[i].sell_price = data.hands[i].sell_price || data.hands[i].price;
-                    gameState.currentHands[i].probability = data.hands[i].probability;
-                    if (data.hands[i].hand_type) {
-                        gameState.currentHands[i].hand_type = data.hands[i].hand_type;
-                    }
-                }
-            }
-        }
+        // Calculate profit change based on new sell price
+        const newSellPrice = data.hands[gameState.ownedHand].sell_price || 
+                           data.hands[gameState.ownedHand].price || 0;
+        const priceChange = newSellPrice - oldSellPrice;
+        gameState.sessionProfit += priceChange;
         
         updateUI();
-        if (gameState.communityCards.length === 3) {
-            showMessage('Flop dealt!', 'success');
-        } else if (gameState.communityCards.length === 4) {
-            showMessage('Turn dealt!', 'success');
-        } else if (gameState.communityCards.length === 5) {
-            showMessage('River dealt!', 'success');
+        
+        // Show price change message
+        if (priceChange > 0) {
+            showMessage(`Hand value increased by $${priceChange}!`, 'success');
+        } else if (priceChange < 0) {
+            showMessage(`Hand value decreased by $${Math.abs(priceChange)}`, 'error');
         }
+        
     } catch (error) {
-        showMessage('Error dealing board card: ' + error.message, 'error');
+        showMessage('Error dealing community card: ' + error.message, 'error');
     }
 }
 
