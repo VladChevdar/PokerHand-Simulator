@@ -26,7 +26,7 @@ function formatCardForDisplay(card) {
 
 // Add card image mapping
 function getCardImagePath(card) {
-    if (!card || card.length !== 2) return '/static/img/cards/PNG/blue_back.png';
+    if (!card || card.length !== 2) return 'static/img/cards/PNG/blue_back.png';
     
     let rank = card[0];
     const suit = card[1];
@@ -38,11 +38,11 @@ function getCardImagePath(card) {
     
     // Face cards are uppercase in filenames
     if (['J', 'Q', 'K', 'A'].includes(rank)) {
-        return `/static/img/cards/PNG/${rank}${suit}.png`;
+        return `static/img/cards/PNG/${rank}${suit}.png`;
     }
     
     // Number cards
-    return `/static/img/cards/PNG/${rank}${suit}.png`;
+    return `static/img/cards/PNG/${rank}${suit}.png`;
 }
 
 // Initialize the application
