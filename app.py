@@ -306,7 +306,6 @@ def generate_hands():
 
 @app.route('/api/buy-hand', methods=['POST'])
 def buy_hand():
-    """Buy a hand with no fee, refund current hand if owned"""
     data = request.get_json()
     player_index = data.get('player_index')
     price = data.get('price')
@@ -319,14 +318,30 @@ def buy_hand():
         session['balance'] = balance - price
         session['owned_hand'] = player_index
         
-        # Add transaction to history with timestamp
+        # Get hand details and current state
+        hands = session.get('hands', [])
+        community_cards = session.get('community_cards', [])
+        _, _, probabilities = get_dynamic_hand_prices_and_probs()
+        
+        # Get hand type if community cards exist
+        hand_type = None
+        if community_cards:
+            hand_types = get_hand_type([hands[player_index]], community_cards)
+            hand_type = hand_types[0]['name'] if hand_types else None
+        
+        # Add transaction to history with timestamp and additional info
         game_history = session.get('game_history', [])
         game_history.append({
             'action': 'buy',
             'player': player_index + 1,
             'price': price,
             'balance': balance - price,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'hand_cards': hands[player_index],
+            'community_cards': community_cards,
+            'win_probability': probabilities[player_index] if probabilities else None,
+            'hand_type': hand_type,
+            'market_prices': [{'hand': i+1, 'price': p} for i, p in enumerate(get_dynamic_hand_prices_and_probs()[0])]
         })
         session['game_history'] = game_history
         
@@ -348,27 +363,51 @@ def buy_hand():
 
 @app.route('/api/sell-hand', methods=['POST'])
 def sell_hand():
-    """Sell currently owned hand (no fee)"""
-    if session.get('owned_hand') is None:
-        return jsonify({'error': 'No hand owned'}), 400
-    
     data = request.get_json()
     current_price = data.get('current_price', 0)
     
     try:
         balance = session.get('balance', STARTING_BALANCE)
-        owned_hand = session['owned_hand']
+        owned_hand = session.get('owned_hand')
+        
+        if owned_hand is None:
+            return jsonify({'error': 'No hand owned'}), 400
+        
+        # Get hand details and current state
+        hands = session.get('hands', [])
+        community_cards = session.get('community_cards', [])
+        _, _, probabilities = get_dynamic_hand_prices_and_probs()
+        
+        # Get hand type
+        hand_types = get_hand_type([hands[owned_hand]], community_cards)
+        hand_type = hand_types[0]['name'] if hand_types else None
+        
+        # Find the buy price from history to calculate profit/loss
+        buy_price = None
+        for transaction in reversed(session.get('game_history', [])):
+            if transaction['action'] == 'buy' and transaction['player'] == owned_hand + 1:
+                buy_price = transaction['price']
+                break
+        
+        profit_loss = current_price - buy_price if buy_price is not None else None
+        
         session['balance'] = balance + current_price
         session['owned_hand'] = None
         
-        # Add transaction to history with timestamp
+        # Add transaction to history with timestamp and additional info
         game_history = session.get('game_history', [])
         game_history.append({
             'action': 'sell',
             'player': owned_hand + 1,
             'price': current_price,
             'balance': balance + current_price,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'hand_cards': hands[owned_hand],
+            'community_cards': community_cards,
+            'win_probability': probabilities[owned_hand] if probabilities else None,
+            'hand_type': hand_type,
+            'profit_loss': profit_loss,
+            'market_prices': [{'hand': i+1, 'price': p} for i, p in enumerate(get_dynamic_hand_prices_and_probs()[0])]
         })
         session['game_history'] = game_history
         

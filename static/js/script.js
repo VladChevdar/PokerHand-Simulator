@@ -5,7 +5,8 @@ let gameState = {
     currentHands: [],
     communityCards: [],
     gameHistory: [],
-    sessionProfit: 0  // Track profit for current trading session
+    sessionProfit: 0,               // Track profit for current trading session (computed dynamically)
+    sessionStartBalance: 0          // Balance after last "Generate Hands" action
 };
 
 // Card validation and display logic
@@ -182,6 +183,9 @@ async function loadGameState() {
         gameState.balance = data.balance;
         gameState.ownedHand = data.owned_hand;
         gameState.gameHistory = data.game_history || [];
+        if (!gameState.sessionStartBalance) {
+            gameState.sessionStartBalance = data.balance;
+        }
         updateUI();
     } catch (error) {
         console.error('Error loading game state:', error);
@@ -230,7 +234,10 @@ async function generateNewHands() {
         gameState.communityCards = [];
         gameState.ownedHand = null;
         gameState.gameHistory = data.game_history || gameState.gameHistory;
-        gameState.sessionProfit = -10;  // Reset profit and account for generate fee
+        
+        // Baseline should be balance BEFORE the $10 generate fee so that session profit starts at -10
+        gameState.sessionStartBalance = data.balance + 10;
+        gameState.sessionProfit = 0;
         
         updateUI();
         if (data.refund_amount && data.refund_amount > 0) {
@@ -306,15 +313,13 @@ async function sellHand() {
             return;
         }
         
-        const oldBalance = gameState.balance;
         gameState.balance = data.balance;
         gameState.ownedHand = data.owned_hand; // Should be null after selling
         console.log('After selling - ownedHand:', gameState.ownedHand, 'communityCards length:', gameState.communityCards.length);
         gameState.gameHistory = data.game_history || gameState.gameHistory;
         
-        // Update session profit
-        const balanceChange = data.balance - oldBalance;
-        gameState.sessionProfit += balanceChange;
+        // Final profit is already tracked through price changes during community cards
+        // No need to add anything here as the profit from price changes is already in sessionProfit
         
         updateUI();
         if (currentPrice > 0) {
@@ -366,6 +371,7 @@ async function resetGame() {
         gameState.communityCards = [];
         gameState.gameHistory = [];
         gameState.sessionProfit = 0; // Reset session profit to 0
+        gameState.sessionStartBalance = data.balance;
         
         // Clear UI
         document.getElementById('hands-container').innerHTML = '<p class="no-hands">Click "Generate New Hands" to start trading!</p>';
@@ -401,11 +407,19 @@ function updateUI() {
     // Update balance display
     document.getElementById('current-balance').textContent = `$${gameState.balance}`;
     
-    // Update profit display with color based on profit/loss
+    // Dynamically calculate current session profit: (balance + value of owned hand) - sessionStartBalance
+    let ownedValue = 0;
+    if (gameState.ownedHand !== null && gameState.currentHands[gameState.ownedHand]) {
+        const ownedHandData = gameState.currentHands[gameState.ownedHand];
+        ownedValue = ownedHandData.sell_price !== undefined ? ownedHandData.sell_price : (ownedHandData.price || 0);
+    }
+    const currentProfit = (gameState.balance + ownedValue) - gameState.sessionStartBalance;
+    gameState.sessionProfit = currentProfit; // Keep in state for debugging
+
     const profitDisplay = document.getElementById('session-profit');
-    const profitText = gameState.sessionProfit >= 0 ? `+$${gameState.sessionProfit}` : `-$${Math.abs(gameState.sessionProfit)}`;
+    const profitText = currentProfit >= 0 ? `+$${currentProfit}` : `-$${Math.abs(currentProfit)}`;
     profitDisplay.textContent = profitText;
-    profitDisplay.className = `session-profit ${gameState.sessionProfit >= 0 ? 'profit' : 'loss'}`;
+    profitDisplay.className = `session-profit ${currentProfit >= 0 ? 'profit' : 'loss'}`;
     
     // Clear any text in game-state-left
     document.querySelector('.game-state-left').textContent = '';
@@ -421,7 +435,12 @@ function updateUI() {
     
     // Enable/disable Generate New Hands button based on hand ownership
     const generateBtn = document.getElementById('generate-hands');
-    if (gameState.ownedHand !== null) {
+    let ownedHandValueForBtn = 0;
+    if (gameState.ownedHand !== null && gameState.currentHands[gameState.ownedHand]) {
+        const hData = gameState.currentHands[gameState.ownedHand];
+        ownedHandValueForBtn = hData.sell_price !== undefined ? hData.sell_price : (hData.price || 0);
+    }
+    if (gameState.ownedHand !== null && ownedHandValueForBtn > 0 && gameState.communityCards.length < 5) {
         generateBtn.disabled = true;
         generateBtn.title = 'Sell your current hand before generating new ones';
     } else {
@@ -1035,7 +1054,6 @@ async function nextCommunityCard() {
         const newSellPrice = data.hands[gameState.ownedHand].sell_price || 
                            data.hands[gameState.ownedHand].price || 0;
         const priceChange = newSellPrice - oldSellPrice;
-        gameState.sessionProfit += priceChange;
         
         updateUI();
         
@@ -1053,7 +1071,7 @@ async function nextCommunityCard() {
             const isWinning = ownedHand.probability === maxProbability;
             const winningHandsCount = gameState.currentHands.filter(h => h.probability === maxProbability).length;
             
-            // Show game over message based on results
+            // Show final results message first
             if (isWinning) {
                 if (winningHandsCount > 1) {
                     showMessage('🤝 Game Over - Your hand was part of a draw!', 'success');
@@ -1063,6 +1081,9 @@ async function nextCommunityCard() {
             } else {
                 showMessage('Game Over - Your hand did not win.', 'error');
             }
+            
+            // Automatically sell any hand when game is over
+            await sellHand();
         }
         
     } catch (error) {
