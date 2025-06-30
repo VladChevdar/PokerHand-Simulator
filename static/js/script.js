@@ -242,6 +242,12 @@ async function sellHand() {
     const ownedHandData = gameState.currentHands[gameState.ownedHand];
     const currentPrice = ownedHandData.sell_price !== undefined ? ownedHandData.sell_price : (ownedHandData.price || 0);
     
+    // Prevent selling for $0
+    if (currentPrice <= 0) {
+        showMessage('Cannot sell hand for $0!', 'error');
+        return;
+    }
+    
     try {
         const response = await fetch('/api/sell-hand', {
             method: 'POST',
@@ -394,7 +400,12 @@ function updateHandsDisplay() {
         const isDraw = isWinning && winningHandsCount > 1;
         
         const handElement = document.createElement('div');
-        handElement.className = `hand-card ${isOwned ? 'owned' : ''} ${isWinning ? 'winning' : ''} ${isDraw ? 'draw' : ''}`;
+        // Set classes in specific order: base class, owned, winning, draw
+        const classes = ['hand-card'];
+        if (isOwned) classes.push('owned');
+        if (isWinning) classes.push('winning');
+        if (isDraw) classes.push('draw');
+        handElement.className = classes.join(' ');
         
         handElement.innerHTML = `
             <div class="hand-header">
@@ -419,7 +430,9 @@ function updateHandsDisplay() {
             </div>
             <div class="hand-actions">
                 ${isOwned ? 
-                    `<button class="btn btn-warning" onclick="sellHand()">Sell for $${hand.sell_price}</button>` :
+                    `<button class="btn btn-warning" onclick="sellHand()" ${gameState.communityCards.length === 5 ? 'disabled' : ''}>
+                        ${gameState.communityCards.length === 5 ? 'Game Complete' : `Sell for $${hand.sell_price}`}
+                    </button>` :
                     `<button class="btn btn-primary" onclick="buyHand(${index}, ${hand.price})" ${gameState.ownedHand !== null || gameState.communityCards.length === 5 ? 'disabled' : ''}>
                         ${gameState.communityCards.length === 5 ? 'Game Complete' : `Buy for $${hand.price}`}
                     </button>`
@@ -912,6 +925,26 @@ async function nextCommunityCard() {
             showMessage(`Hand value increased by $${priceChange}!`, 'success');
         } else if (priceChange < 0) {
             showMessage(`Hand value decreased by $${Math.abs(priceChange)}`, 'error');
+        }
+        
+        // Check if game is over and we have a winning hand
+        if (gameState.communityCards.length === 5 && gameState.ownedHand !== null) {
+            const ownedHand = gameState.currentHands[gameState.ownedHand];
+            const maxProbability = Math.max(...gameState.currentHands.map(h => h.probability));
+            const isWinning = ownedHand.probability === maxProbability;
+            const winningHandsCount = gameState.currentHands.filter(h => h.probability === maxProbability).length;
+            
+            if (isWinning) {
+                // Automatically sell the winning hand
+                await sellHand();
+                if (winningHandsCount > 1) {
+                    showMessage('🤝 Game Over - Your hand was part of a draw!', 'success');
+                } else {
+                    showMessage('🏆 Game Over - Your hand won!', 'success');
+                }
+            } else {
+                showMessage('Game Over - Your hand did not win.', 'error');
+            }
         }
         
     } catch (error) {
