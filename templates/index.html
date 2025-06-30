@@ -57,9 +57,12 @@
             <!-- Available Hands -->
             <div id="available-hands" class="available-hands">
                 <h3>Available Hands to Buy</h3>
-                <div id="hands-container" class="hands-container">
-                    <p class="no-hands">Click "Generate New Hands" to start trading!</p>
+                <div class="hands-scroll-wrapper" id="hands-scroll-wrapper">
+                    <div id="hands-container" class="hands-container">
+                        <p class="no-hands">Click "Generate New Hands" to start trading!</p>
+                    </div>
                 </div>
+                <div class="scroll-hint">← Scroll horizontally to see more hands →</div>
             </div>
 
             <!-- Transaction History -->
@@ -81,19 +84,28 @@
             <h3>💡 How to play</h3>
             <div class="help-content">
                 <div class="help-item">
-                    <strong>🎮 Trading Game:</strong> Generate 2-10 random hands, buy the one you think will win, then add board cards (Flop, Turn, River) to see how prices change!
+                    <strong>🎮 Trading Game:</strong> Click "Generate New Hands" (choose 2-10 hands) to start a round. The $10 table fee is taken immediately.
                 </div>
                 <div class="help-item">
-                    <strong>💰 Pricing:</strong> Better hands cost more but have lower returns. Add board cards to see dynamic pricing!
+                    <strong>💲 Pricing:</strong> Hand prices are based on win probability with ±20% random variation. Better hands cost more but have lower potential returns.
                 </div>
                 <div class="help-item">
-                    <strong>💸 Fees:</strong> A flat $10 fee is charged each time you generate new hands. No fee on buying or selling.
+                    <strong>🛒 Buying a Hand:</strong> Buy exactly one hand by paying its listed price. You can hold only one hand at a time.
                 </div>
                 <div class="help-item">
-                    <strong>🔬 Simulator:</strong> Use the original simulator below for custom hand analysis.
+                    <strong>➡️ Dealing the Board:</strong> Use the Deal Flop / Turn / River button to reveal community cards. Prices update after every street.
                 </div>
                 <div class="help-item">
-                    <strong>Card Format:</strong> Use 2-character format: Rank + Suit
+                    <strong>💰 Selling:</strong> Sell whenever you like for the current sell price with no fees. After the river your hand is automatically sold.
+                </div>
+                <div class="help-item">
+                    <strong>🔄 New Round &amp; Refunds:</strong> After your hand is sold, hit "Generate New Hands" to play again. Your sale proceeds are already in your balance.
+                </div>
+                <div class="help-item">
+                    <strong>🔬 Simulator:</strong> Use the Hand Simulator below to run custom probability calculations.
+                </div>
+                <div class="help-item">
+                    <strong>Card Format:</strong> Use 2-character strings: Rank + Suit
                     <br>Ranks: 2-9, T (10), J, Q, K, A
                     <br>Suits: H (♥), D (♦), C (♣), S (♠)
                 </div>
@@ -109,34 +121,37 @@
             <div class="setup-section">
                 <div class="card-input-section">
                     <h2>Hands</h2>
-                    <div id="player-hands" class="player-hands">
-                        <div class="player-hand" data-player="1">
-                            <div class="player-header">
-                                <h3>Hand 1</h3>
-                                <button class="remove-player" onclick="removePlayer(this)">×</button>
+                    <div class="hands-scroll-wrapper" id="simulator-hands-scroll-wrapper">
+                        <div id="player-hands" class="player-hands">
+                            <div class="player-hand" data-player="1">
+                                <div class="player-header">
+                                    <h3>Hand 1</h3>
+                                    <button class="remove-player" onclick="removePlayer(this)">×</button>
+                                </div>
+                                <div class="card-inputs">
+                                    <input type="text" class="card-input" placeholder="e.g., AH" maxlength="2" data-card="1">
+                                    <input type="text" class="card-input" placeholder="e.g., KS" maxlength="2" data-card="2">
+                                </div>
+                                <div class="hand-cards"></div>
                             </div>
-                            <div class="card-inputs">
-                                <input type="text" class="card-input" placeholder="e.g., AH" maxlength="2" data-card="1">
-                                <input type="text" class="card-input" placeholder="e.g., KS" maxlength="2" data-card="2">
+                            <div class="player-hand" data-player="2">
+                                <div class="player-header">
+                                    <h3>Hand 2</h3>
+                                    <button class="remove-player" onclick="removePlayer(this)">×</button>
+                                </div>
+                                <div class="card-inputs">
+                                    <input type="text" class="card-input" placeholder="e.g., QD" maxlength="2" data-card="1">
+                                    <input type="text" class="card-input" placeholder="e.g., JC" maxlength="2" data-card="2">
+                                </div>
+                                <div class="hand-cards"></div>
                             </div>
-                            <div class="hand-cards"></div>
-                        </div>
-                        <div class="player-hand" data-player="2">
-                            <div class="player-header">
-                                <h3>Hand 2</h3>
-                                <button class="remove-player" onclick="removePlayer(this)">×</button>
+                            <div id="loading" class="loading" style="display: none;">
+                                <div class="spinner"></div>
+                                <p>Running simulation...</p>
                             </div>
-                            <div class="card-inputs">
-                                <input type="text" class="card-input" placeholder="e.g., QD" maxlength="2" data-card="1">
-                                <input type="text" class="card-input" placeholder="e.g., JC" maxlength="2" data-card="2">
-                            </div>
-                            <div class="hand-cards"></div>
-                        </div>
-                        <div id="loading" class="loading" style="display: none;">
-                            <div class="spinner"></div>
-                            <p>Running simulation...</p>
                         </div>
                     </div>
+                    <div class="scroll-hint">← Scroll horizontally to see more hands →</div>
                     <button id="add-player" class="btn btn-secondary">+ Add Hand</button>
                     <button id="clear-simulator" class="btn btn-danger">🗑️ Clear All</button>
                 </div>

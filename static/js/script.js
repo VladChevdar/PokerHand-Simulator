@@ -1,12 +1,13 @@
 // Trading Game State
 let gameState = {
-    balance: 1000,
+    balance: 500,
     ownedHand: null,
     currentHands: [],
     communityCards: [],
     gameHistory: [],
     sessionProfit: 0,               // Track profit for current trading session (computed dynamically)
-    sessionStartBalance: 0          // Balance after last "Generate Hands" action
+    sessionStartBalance: 0,         // Balance after last "Generate Hands" action
+    previousPrices: []              // Track previous prices for animation
 };
 
 // Card validation and display logic
@@ -52,7 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const simulationsSlider = document.getElementById('simulations');
     const simulationsValue = document.getElementById('simulations-value');
     if (simulationsSlider && simulationsValue) {
-        simulationsSlider.value = 10000;
+        simulationsSlider.value = 5000;
         simulationsValue.textContent = '10,000';
     }
     
@@ -93,6 +94,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Download button is handled in setupEventListeners()
+    
+    // Check scroll overflow on window resize
+    window.addEventListener('resize', checkScrollOverflow);
+    
+    // Initial check for simulator scroll overflow
+    checkSimulatorScrollOverflow();
 });
 
 function setupEventListeners() {
@@ -469,10 +476,11 @@ function updateUI() {
     }
 }
 
-function updateHandsDisplay() {
+function updateHandsDisplay(animatePrices = false) {
     const handsContainer = document.getElementById('hands-container');
     if (!gameState.currentHands || gameState.currentHands.length === 0) {
         handsContainer.innerHTML = '<p class="no-hands">Click "Generate New Hands" to start trading!</p>';
+        gameState.previousPrices = [];
         return;
     }
 
@@ -499,21 +507,38 @@ function updateHandsDisplay() {
         if (isDraw) classes.push('draw');
         handElement.className = classes.join(' ');
         
+        // Determine price change for animation
+        let priceChangeClass = '';
+        let sellPriceChangeClass = '';
+        if (animatePrices && gameState.previousPrices[index]) {
+            const previousPrice = gameState.previousPrices[index].price;
+            const previousSellPrice = gameState.previousPrices[index].sellPrice;
+            const currentPrice = hand.price;
+            const currentSellPrice = hand.sell_price || hand.price;
+            
+            if (currentPrice > previousPrice) {
+                priceChangeClass = 'price-increase';
+            } else if (currentPrice < previousPrice) {
+                priceChangeClass = 'price-decrease';
+            }
+            
+            if (currentSellPrice > previousSellPrice) {
+                sellPriceChangeClass = 'sell-price-increase';
+            } else if (currentSellPrice < previousSellPrice) {
+                sellPriceChangeClass = 'sell-price-decrease';
+            }
+        }
+        
         handElement.innerHTML = `
             <div class="hand-header">
                 <span class="hand-title">Hand ${index + 1}</span>
-                <span class="hand-price">$${hand.price}</span>
+                <span class="hand-price ${priceChangeClass}">$${hand.price}</span>
             </div>
             <div class="hand-cards">
                 ${hand.cards.map(card => `
                     <img class="card-image" src="${getCardImagePath(card)}" alt="${formatCardForDisplay(card)}" title="${formatCardForDisplay(card)}">
                 `).join('')}
             </div>
-            ${hand.hand_type ? `
-                <div class="hand-type-display">
-                    <span class="hand-type">${hand.hand_type.name || hand.hand_type}</span>
-                </div>
-            ` : ''}
             <div class="hand-strength">
                 <span class="strength-label">Strength</span>
                 <div class="strength-bar">
@@ -522,7 +547,7 @@ function updateHandsDisplay() {
             </div>
             <div class="hand-actions">
                 ${isOwned ? 
-                    `<button class="btn btn-warning" onclick="sellHand()" ${gameState.communityCards.length === 5 ? 'disabled' : ''}>
+                    `<button class="btn btn-warning ${sellPriceChangeClass}" onclick="sellHand()" ${gameState.communityCards.length === 5 ? 'disabled' : ''}>
                         ${gameState.communityCards.length === 5 ? 'Game Complete' : `Sell for $${hand.sell_price}`}
                     </button>` :
                     `<button class="btn btn-primary" onclick="buyHand(${index}, ${hand.price})" ${gameState.ownedHand !== null || gameState.communityCards.length === 5 ? 'disabled' : ''}>
@@ -533,10 +558,73 @@ function updateHandsDisplay() {
         `;
         
         handsContainer.appendChild(handElement);
+        
+        // Remove animation classes after animation completes
+        if (priceChangeClass) {
+            setTimeout(() => {
+                const priceElement = handElement.querySelector('.hand-price');
+                if (priceElement) {
+                    priceElement.classList.remove('price-increase', 'price-decrease');
+                }
+            }, 1200);
+        }
+        
+        if (sellPriceChangeClass) {
+            setTimeout(() => {
+                const sellButton = handElement.querySelector('.btn-warning');
+                if (sellButton) {
+                    sellButton.classList.remove('sell-price-increase', 'sell-price-decrease');
+                }
+            }, 1000);
+        }
     });
+    
+    // Store current prices for next comparison
+    gameState.previousPrices = gameState.currentHands.map(hand => ({
+        price: hand.price,
+        sellPrice: hand.sell_price || hand.price
+    }));
+    
+    // Check for horizontal overflow and update scroll fade effect
+    checkScrollOverflow();
 }
 
-function updateCommunityCardsDisplay() {
+function checkScrollOverflow() {
+    const wrapper = document.getElementById('hands-scroll-wrapper');
+    const container = document.getElementById('hands-container');
+    
+    if (wrapper && container) {
+        // Check if the content overflows horizontally
+        const hasOverflow = container.scrollWidth > container.clientWidth;
+        
+        if (hasOverflow) {
+            wrapper.classList.add('has-overflow');
+        } else {
+            wrapper.classList.remove('has-overflow');
+        }
+    }
+    
+    // Also check simulator scroll overflow
+    checkSimulatorScrollOverflow();
+}
+
+function checkSimulatorScrollOverflow() {
+    const wrapper = document.getElementById('simulator-hands-scroll-wrapper');
+    const container = document.getElementById('player-hands');
+    
+    if (wrapper && container) {
+        // Check if the content overflows horizontally
+        const hasOverflow = container.scrollWidth > container.clientWidth;
+        
+        if (hasOverflow) {
+            wrapper.classList.add('has-overflow');
+        } else {
+            wrapper.classList.remove('has-overflow');
+        }
+    }
+}
+
+function updateCommunityCardsDisplay(animateNewCards = false, previousCardCount = 0) {
     const display = document.getElementById('community-cards-display');
     
     if (!gameState.communityCards || gameState.communityCards.length === 0) {
@@ -544,10 +632,54 @@ function updateCommunityCardsDisplay() {
         return;
     }
     
-    display.innerHTML = gameState.communityCards.map(card => {
-        const imagePath = getCardImagePath(card);
-        return `<div class="card" style="background-image: url('${imagePath}')" data-card="${card}"></div>`;
-    }).join('');
+    if (animateNewCards) {
+        // Clear the display if we're dealing the flop (first cards)
+        if (previousCardCount === 0) {
+            display.innerHTML = '';
+        }
+        
+        // Animate only the new cards
+        gameState.communityCards.forEach((card, index) => {
+            if (index >= previousCardCount) {
+                // This is a new card, add it with animation
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card deal-animation';
+                // Start with card back - actual card image will be set during animation
+                cardElement.style.backgroundImage = `url('/static/img/cards/PNG/blue_back.png')`;
+                cardElement.setAttribute('data-card', card);
+                
+                // Add specific animation classes based on position
+                if (previousCardCount === 0) {
+                    // Flop cards (first 3)
+                    cardElement.classList.add(`flop-${index + 1}`);
+                } else if (previousCardCount === 3) {
+                    // Turn card
+                    cardElement.classList.add('turn');
+                } else if (previousCardCount === 4) {
+                    // River card
+                    cardElement.classList.add('river');
+                }
+                
+                display.appendChild(cardElement);
+                
+                // Switch to actual card image at the right moment (when card flips)
+                setTimeout(() => {
+                    cardElement.style.backgroundImage = `url('${getCardImagePath(card)}')`;
+                }, 480); // 60% of 800ms animation
+                
+                // Remove animation class after animation completes
+                setTimeout(() => {
+                    cardElement.classList.remove('deal-animation', 'flop-1', 'flop-2', 'flop-3', 'turn', 'river');
+                }, 800);
+            }
+        });
+    } else {
+        // No animation, just display all cards
+        display.innerHTML = gameState.communityCards.map(card => {
+            const imagePath = getCardImagePath(card);
+            return `<div class="card" style="background-image: url('${imagePath}')" data-card="${card}"></div>`;
+        }).join('');
+    }
 }
 
 function updateTransactionHistory() {
@@ -677,33 +809,52 @@ function getUnicodeCard(card) {
     return rank + SUIT_SYMBOLS[suit];
 }
 
+let lastClickedButton = null;
+
+document.addEventListener('click', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('btn')) {
+        lastClickedButton = e.target;
+    }
+});
+
 function showMessage(message, type) {
-    // Remove existing messages
-    const existingMessages = document.querySelectorAll('.message');
-    existingMessages.forEach(msg => msg.remove());
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}-message`;
-    messageDiv.textContent = message;
-    
-    // Insert at the top of the container
-    const container = document.querySelector('.container');
-    container.insertBefore(messageDiv, container.firstChild);
-    
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-        if (messageDiv.parentNode) {
-            messageDiv.remove();
-        }
-    }, 5000);
+    if (type === 'success') {
+        // Suppress success banners – do nothing
+        return;
+    }
+
+    // For errors, visually highlight the button that triggered the action
+    if (type === 'error' && lastClickedButton) {
+        lastClickedButton.classList.add('btn-error-flash');
+        setTimeout(() => {
+            if (lastClickedButton) {
+                lastClickedButton.classList.remove('btn-error-flash');
+            }
+        }, 1500);
+    }
+    // Also log to console for debugging purposes
+    console.warn(message);
 }
 
 // Original Simulator Functions (keeping for the simulator section)
 let playerCount = 2;
 
+function isDuplicateCard(card, excludeInputs = []) {
+    const used = getAllUsedCards(excludeInputs);
+    return used.has(card);
+}
+
 function handleCardInput(input) {
     input.value = input.value.toUpperCase();
     validateCard(input);
+
+    // Check for duplicate cards (across all inputs)
+    const cardVal = input.value.toUpperCase();
+    if (isValidCard(cardVal) && isDuplicateCard(cardVal, [input])) {
+        input.classList.add('invalid');
+        showMessage('Duplicate card', 'error');
+    }
+
     updateCardDisplays();
 }
 
@@ -778,8 +929,8 @@ function createCardElement(cardStr) {
 }
 
 function addPlayer() {
-    if (playerCount >= 10) {
-        showMessage('Maximum 10 hands allowed', 'error');
+    if (playerCount >= 4) {
+        showMessage('Maximum 4 hands allowed', 'error');
         return;
     }
     
@@ -806,6 +957,9 @@ function addPlayer() {
     playerHand.querySelectorAll('.card-input').forEach(input => {
         input.addEventListener('input', () => handleCardInput(input));
     });
+    
+    // Check for scroll overflow after adding new player
+    checkSimulatorScrollOverflow();
 }
 
 function removePlayer(button) {
@@ -825,6 +979,9 @@ function removePlayer(button) {
         hand.setAttribute('data-player', index + 1);
         hand.querySelector('h3').textContent = `Hand ${index + 1}`;
     });
+    
+    // Check for scroll overflow after removing player
+    checkSimulatorScrollOverflow();
 }
 
 function collectPlayerHands() {
@@ -850,13 +1007,12 @@ function collectPlayerHands() {
 
 function collectCommunityCards() {
     const cards = [];
-    document.querySelectorAll('.community-cards .card-input').forEach(input => {
+    document.querySelectorAll('.community-card').forEach(input => {
         const card = validateCard(input);
         if (card) {
             cards.push(card);
         }
     });
-    
     return cards;
 }
 
@@ -917,8 +1073,6 @@ function displayResults(data) {
                 existingResults.remove();
             }
             
-            const handType = data.hand_types && data.hand_types[index] ? data.hand_types[index].name : 'Unknown';
-            
             // Create results element
             const resultsElement = document.createElement('div');
             resultsElement.className = 'hand-results';
@@ -929,9 +1083,6 @@ function displayResults(data) {
                         <div class="strength-fill" style="width: ${data.probabilities[index]}%"></div>
                     </div>
                     <span class="probability-percentage">${data.probabilities[index]}%</span>
-                </div>
-                <div class="hand-type-result">
-                    <span class="hand-type">${handType}</span>
                 </div>
             `;
             
@@ -969,7 +1120,6 @@ function addRandomButtonsToInitialPlayers() {
 
 function getAllUsedCards(excludeInputs = []) {
     const used = new Set();
-    
     // Collect from all player hands
     document.querySelectorAll('.player-hand .card-input').forEach(input => {
         if (!excludeInputs.includes(input)) {
@@ -977,15 +1127,13 @@ function getAllUsedCards(excludeInputs = []) {
             if (card) used.add(card);
         }
     });
-    
     // Collect from community cards
-    document.querySelectorAll('.community-cards .card-input').forEach(input => {
+    document.querySelectorAll('.community-card').forEach(input => {
         if (!excludeInputs.includes(input)) {
             const card = validateCard(input);
             if (card) used.add(card);
         }
     });
-    
     return used;
 }
 
@@ -1032,9 +1180,15 @@ async function nextCommunityCard() {
     }
     
     try {
-        // Store the current sell price before dealing new card
+        // Store the current state before dealing new card
         const oldSellPrice = gameState.currentHands[gameState.ownedHand].sell_price || 
                            gameState.currentHands[gameState.ownedHand].price || 0;
+        const previousCardCount = gameState.communityCards.length;
+        
+        // Disable the button during animation
+        const nextBtn = document.getElementById('next-card-btn');
+        nextBtn.disabled = true;
+        nextBtn.textContent = 'Dealing...';
         
         const response = await fetch('/api/next-community', {
             method: 'POST'
@@ -1044,6 +1198,15 @@ async function nextCommunityCard() {
         
         if (data.error) {
             showMessage(data.error, 'error');
+            // Re-enable button on error
+            nextBtn.disabled = false;
+            if (previousCardCount === 0) {
+                nextBtn.textContent = 'Deal Flop';
+            } else if (previousCardCount === 3) {
+                nextBtn.textContent = 'Deal Turn';
+            } else if (previousCardCount === 4) {
+                nextBtn.textContent = 'Deal River';
+            }
             return;
         }
         
@@ -1055,39 +1218,88 @@ async function nextCommunityCard() {
                            data.hands[gameState.ownedHand].price || 0;
         const priceChange = newSellPrice - oldSellPrice;
         
-        updateUI();
+        // Update UI with animations for community cards and prices
+        updateHandsDisplay(true); // Enable price animations
+        updateCommunityCardsDisplay(true, previousCardCount);
+        updateTransactionHistory();
         
-        // Show price change message
-        if (priceChange > 0) {
-            showMessage(`Hand value increased by $${priceChange}!`, 'success');
-        } else if (priceChange < 0) {
-            showMessage(`Hand value decreased by $${Math.abs(priceChange)}`, 'error');
+        // Update other UI elements
+        document.getElementById('current-balance').textContent = `$${gameState.balance}`;
+        let ownedValue = 0;
+        if (gameState.ownedHand !== null && gameState.currentHands[gameState.ownedHand]) {
+            const ownedHandData = gameState.currentHands[gameState.ownedHand];
+            ownedValue = ownedHandData.sell_price !== undefined ? ownedHandData.sell_price : (ownedHandData.price || 0);
         }
+        const currentProfit = (gameState.balance + ownedValue) - gameState.sessionStartBalance;
+        gameState.sessionProfit = currentProfit;
+        const profitDisplay = document.getElementById('session-profit');
+        const profitText = currentProfit >= 0 ? `+$${currentProfit}` : `-$${Math.abs(currentProfit)}`;
+        profitDisplay.textContent = profitText;
+        profitDisplay.className = `session-profit ${currentProfit >= 0 ? 'profit' : 'loss'}`;
+        
+        // Update button state after a delay to allow for animation
+        setTimeout(() => {
+            if (gameState.communityCards.length >= 5) {
+                nextBtn.disabled = true;
+                nextBtn.textContent = 'Board Complete';
+            } else if (gameState.ownedHand === null) {
+                nextBtn.disabled = true;
+                nextBtn.textContent = 'Buy a Hand First';
+            } else {
+                nextBtn.disabled = false;
+                if (gameState.communityCards.length === 3) {
+                    nextBtn.textContent = 'Deal Turn';
+                } else if (gameState.communityCards.length === 4) {
+                    nextBtn.textContent = 'Deal River';
+                }
+            }
+        }, 800); // Wait for animation to mostly complete
+        
+        // Show price change message after animation starts
+        setTimeout(() => {
+            if (priceChange > 0) {
+                showMessage(`Hand value increased by $${priceChange}!`, 'success');
+            } else if (priceChange < 0) {
+                showMessage(`Hand value decreased by $${Math.abs(priceChange)}`, 'error');
+            }
+        }, 300);
         
         // Check if game is over and we have a winning hand
         if (gameState.communityCards.length === 5 && gameState.ownedHand !== null) {
-            const ownedHand = gameState.currentHands[gameState.ownedHand];
-            const maxProbability = Math.max(...gameState.currentHands.map(h => h.probability));
-            const isWinning = ownedHand.probability === maxProbability;
-            const winningHandsCount = gameState.currentHands.filter(h => h.probability === maxProbability).length;
-            
-            // Show final results message first
-            if (isWinning) {
-                if (winningHandsCount > 1) {
-                    showMessage('🤝 Game Over - Your hand was part of a draw!', 'success');
+            setTimeout(async () => {
+                const ownedHand = gameState.currentHands[gameState.ownedHand];
+                const maxProbability = Math.max(...gameState.currentHands.map(h => h.probability));
+                const isWinning = ownedHand.probability === maxProbability;
+                const winningHandsCount = gameState.currentHands.filter(h => h.probability === maxProbability).length;
+                
+                // Show final results message first
+                if (isWinning) {
+                    if (winningHandsCount > 1) {
+                        showMessage('🤝 Game Over - Your hand was part of a draw!', 'success');
+                    } else {
+                        showMessage('🏆 Game Over - Your hand won!', 'success');
+                    }
                 } else {
-                    showMessage('🏆 Game Over - Your hand won!', 'success');
+                    showMessage('Game Over - Your hand did not win.', 'error');
                 }
-            } else {
-                showMessage('Game Over - Your hand did not win.', 'error');
-            }
-            
-            // Automatically sell any hand when game is over
-            await sellHand();
+                
+                // Automatically sell any hand when game is over
+                await sellHand();
+            }, 1000); // Wait for animation to complete
         }
         
     } catch (error) {
         showMessage('Error dealing community card: ' + error.message, 'error');
+        // Re-enable button on error
+        const nextBtn = document.getElementById('next-card-btn');
+        nextBtn.disabled = false;
+        if (gameState.communityCards.length === 0) {
+            nextBtn.textContent = 'Deal Flop';
+        } else if (gameState.communityCards.length === 3) {
+            nextBtn.textContent = 'Deal Turn';
+        } else if (gameState.communityCards.length === 4) {
+            nextBtn.textContent = 'Deal River';
+        }
     }
 }
 
