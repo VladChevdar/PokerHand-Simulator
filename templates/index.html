@@ -175,6 +175,10 @@
         </div>
     </div>
 
+    <script>
+        // Pass the static URL base to JavaScript for proper image loading
+        window.STATIC_URL = "{{ url_for('static', filename='') }}";
+    </script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html> 

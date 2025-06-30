@@ -26,7 +26,8 @@ function formatCardForDisplay(card) {
 
 // Add card image mapping
 function getCardImagePath(card) {
-    if (!card || card.length !== 2) return 'static/img/cards/PNG/blue_back.png';
+    const staticUrl = window.STATIC_URL || '/static/';
+    if (!card || card.length !== 2) return `${staticUrl}img/cards/PNG/blue_back.png`;
     
     let rank = card[0];
     const suit = card[1];
@@ -38,11 +39,11 @@ function getCardImagePath(card) {
     
     // Face cards are uppercase in filenames
     if (['J', 'Q', 'K', 'A'].includes(rank)) {
-        return `static/img/cards/PNG/${rank}${suit}.png`;
+        return `${staticUrl}img/cards/PNG/${rank}${suit}.png`;
     }
     
     // Number cards
-    return `static/img/cards/PNG/${rank}${suit}.png`;
+    return `${staticUrl}img/cards/PNG/${rank}${suit}.png`;
 }
 
 // Initialize the application
@@ -588,7 +589,7 @@ function updateCardDisplays() {
             const card = input.value.toUpperCase();
             if (isValidCard(card)) {
                 const img = document.createElement('img');
-                img.src = `/static/img/cards/PNG/${card}.png`;
+                img.src = getCardImagePath(card);
                 img.alt = card;
                 img.className = 'card-image';
                 handCards.appendChild(img);
@@ -605,7 +606,7 @@ function updateCardDisplays() {
         const card = input.value.toUpperCase();
         if (isValidCard(card)) {
             const img = document.createElement('img');
-            img.src = `/static/img/cards/PNG/${card}.png`;
+            img.src = getCardImagePath(card);
             img.alt = card;
             img.className = 'card-image';
             communityDisplay.appendChild(img);
