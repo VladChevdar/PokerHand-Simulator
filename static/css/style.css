@@ -241,21 +241,32 @@ body {
 }
 
 .hand-price {
-    background: #667eea;
-    color: white;
+    color: #2d3748;
     padding: 6px 12px;
     border-radius: 20px;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 1.2rem;
 }
 
 .hand-cards {
     display: flex;
     justify-content: center;
-    gap: 8px;
-    margin-bottom: 15px;
-    flex-wrap: wrap;
-    padding: 10px 0;
+    gap: 10px;
+    margin: 20px 0;
+    position: relative;
+    min-height: 120px;
+}
+
+.card-image {
+    width: 80px;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+.card-image:hover {
+    transform: translateY(-5px);
 }
 
 .hand-type-display {
@@ -273,32 +284,51 @@ body {
 }
 
 .hand-strength {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
+    margin-top: 10px;
+    text-align: center;
+    color: #4a5568;
+    font-size: 0.9rem;
 }
 
 .strength-bar {
-    flex: 1;
-    height: 8px;
-    background: #e2e8f0;
-    border-radius: 4px;
-    margin: 0 10px;
+    height: 6px;
+    background: #edf2f7;
+    border-radius: 3px;
+    margin: 5px 0;
     overflow: hidden;
 }
 
 .strength-fill {
     height: 100%;
-    background: linear-gradient(90deg, #f56565, #ed8936, #ecc94b, #48bb78);
+    background: linear-gradient(to right, #f6e05e, #48bb78);
     transition: width 0.3s ease;
 }
 
 .hand-actions {
     display: flex;
     justify-content: center;
-    margin-top: 15px;
     gap: 10px;
+    margin-top: 15px;
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+}
+
+.hand-actions .btn {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    min-width: 80px;
+    background: rgba(102, 126, 234, 0.9);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.hand-actions .btn:hover {
+    background: rgba(102, 126, 234, 1);
+    transform: translateY(-1px);
 }
 
 /* Community Section */

@@ -373,47 +373,39 @@ function updateUI() {
 
 function updateHandsDisplay() {
     const container = document.getElementById('hands-container');
+    if (!container) return;
     
-    if (gameState.currentHands.length === 0) {
+    if (!gameState.currentHands || gameState.currentHands.length === 0) {
         container.innerHTML = '<p class="no-hands">Click "Generate New Hands" to start trading!</p>';
         return;
     }
     
     container.innerHTML = gameState.currentHands.map((hand, index) => {
         const isOwned = gameState.ownedHand === index;
-        const buyPrice = hand.price !== undefined ? hand.price : 0;
-        const sellPrice = hand.sell_price !== undefined ? hand.sell_price : (hand.price !== undefined ? hand.price : 0);
-        const winProb = hand.probability !== undefined ? hand.probability : 0;
-        const strengthPercent = Math.round(winProb);
-        
-        // Show hand type if available (when community cards are present)
-        const handTypeDisplay = hand.hand_type && gameState.communityCards.length >= 3 ? 
-            `<div class="hand-type-display">${hand.hand_type.name}</div>` : '';
+        const cardImages = hand.cards.map(card => `<img src="${getCardImagePath(card)}" alt="${card}" class="card-image">`).join('');
         
         return `
             <div class="hand-card ${isOwned ? 'owned' : ''}">
                 <div class="hand-header">
                     <span class="hand-title">Hand ${index + 1}</span>
-                    <span class="hand-price">$${isOwned ? sellPrice : buyPrice}</span>
+                    <span class="hand-price">$${hand.price}</span>
                 </div>
                 <div class="hand-cards">
-                    ${hand.cards.map(card => {
-                        const imagePath = getCardImagePath(card);
-                        return `<div class="card" style="background-image: url('${imagePath}')" data-card="${card}"></div>`;
-                    }).join('')}
+                    ${cardImages}
                 </div>
-                ${handTypeDisplay}
+                <div class="hand-type-display">
+                    ${hand.hand_type ? `<span class="hand-type">${hand.hand_type.name}</span>` : ''}
+                </div>
                 <div class="hand-strength">
-                    <span>Strength:</span>
+                    <span>Strength</span>
                     <div class="strength-bar">
-                        <div class="strength-fill" style="width: ${strengthPercent}%"></div>
+                        <div class="strength-fill" style="width: ${hand.probability}%"></div>
                     </div>
-                    <span>${strengthPercent}%</span>
                 </div>
                 <div class="hand-actions">
                     ${isOwned ? 
-                        `<button class="btn btn-secondary" onclick="sellHand()">💰 Sell Hand</button>` :
-                        `<button class="btn btn-primary" onclick="buyHand(${index}, ${buyPrice})" ${gameState.balance < buyPrice ? 'disabled' : ''}>💳 Buy Hand</button>`
+                        `<button class="btn btn-secondary" onclick="sellHand()">Sell $${hand.sell_price}</button>` :
+                        `<button class="btn btn-primary" onclick="buyHand(${index}, ${hand.price})">Buy</button>`
                     }
                 </div>
             </div>
