@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, session
 import random
 from treys import Card, Deck, Evaluator
 import json
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = 'poker_trading_game_secret_key'
@@ -182,7 +183,7 @@ def index():
     if 'game_history' not in session:
         session['game_history'] = []
     
-    return render_template('index.html')
+    return render_template('index.html', balance=session['balance'])
 
 @app.route('/api/game-state')
 def get_game_state():
@@ -225,6 +226,29 @@ def generate_hands():
         
         session['balance'] = balance - total_cost
         
+        # Add transaction to history with timestamp
+        game_history = session.get('game_history', [])
+        timestamp = datetime.now().isoformat()
+        
+        if refund_amount > 0:
+            game_history.append({
+                'action': 'refund',
+                'player': current_owned_hand + 1 if current_owned_hand is not None else None,
+                'price': refund_amount,
+                'balance': balance,
+                'timestamp': timestamp
+            })
+            
+        game_history.append({
+            'action': 'generate',
+            'player': None,
+            'price': GENERATE_HANDS_FEE,
+            'balance': balance - total_cost,
+            'timestamp': timestamp
+        })
+        
+        session['game_history'] = game_history
+        
         hands = generate_random_hands(num_players)
         
         # Store hands and community cards in session first (needed for consistent pricing)
@@ -266,32 +290,11 @@ def generate_hands():
         session['deck'] = [Card.int_to_str(c).upper() for c in deck.cards]  # Store in uppercase
         session['owned_hand'] = None  # Reset owned hand
         
-        # Add to history
-        history = session.get('game_history', [])
-        if refund_amount > 0:
-            history.append({
-                'action': 'refund',
-                'player': current_owned_hand + 1,
-                'price': refund_amount,
-                'fee': 0,
-                'balance': int(session['balance'])
-            })
-        
-        history.append({
-            'action': 'generate',
-            'player': 0,
-            'price': GENERATE_HANDS_FEE,
-            'fee': 0,
-            'balance': int(session['balance'])
-        })
-        
-        session['game_history'] = history
-        
         return jsonify({
             'hands': hand_data,
             'balance': session['balance'],
             'owned_hand': session['owned_hand'],
-            'game_history': history,
+            'game_history': game_history,
             'refund_amount': refund_amount if refund_amount > 0 else None
         })
         
@@ -306,70 +309,42 @@ def buy_hand():
     """Buy a hand with no fee, refund current hand if owned"""
     data = request.get_json()
     player_index = data.get('player_index')
-    price = int(data.get('price'))
+    price = data.get('price')
     
-    current_balance = int(session.get('balance', STARTING_BALANCE))
-    current_owned_hand = session.get('owned_hand')
-    
-    # Calculate refund for current hand if owned (use current market value)
-    refund_amount = 0
-    if current_owned_hand is not None:
-        # Use current market value (sell price) for refund
-        hands = session.get('hands', [])
-        if hands and current_owned_hand < len(hands):
-            _, sell_prices, _ = get_dynamic_hand_prices_and_probs()
-            if current_owned_hand < len(sell_prices):
-                refund_amount = sell_prices[current_owned_hand]
-            else:
-                refund_amount = 0
-        else:
-            refund_amount = 0
-    
-    # Calculate total cost (new hand price - refund)
-    total_cost = price - refund_amount
-    
-    if current_balance < total_cost:
-        return jsonify({'error': 'Insufficient funds'}), 400
-    
-    # Update session
-    session['balance'] = current_balance - total_cost
-    session['owned_hand'] = player_index
-    
-    # Add to history
-    history = session.get('game_history', [])
-    if refund_amount > 0:
-        # Add refund transaction
-        history.append({
-            'action': 'refund',
-            'player': current_owned_hand + 1,
-            'price': refund_amount,
-            'fee': 0,
-            'balance': int(session['balance'])
-        })
-    
-    # Add buy transaction
-    history.append({
-        'action': 'buy',
-        'player': player_index + 1,
-        'price': price,
-        'fee': 0,  # No fee
-        'balance': int(session['balance'])
-    })
-    session['game_history'] = history[-10:]  # Keep last 10 transactions
-    
-    return jsonify({
-        'success': True,
-        'balance': int(session['balance']),
-        'owned_hand': session['owned_hand'],
-        'refund_amount': refund_amount,
-        'game_history': session.get('game_history', []),
-        'transaction': {
+    try:
+        balance = session.get('balance', STARTING_BALANCE)
+        if balance < price:
+            return jsonify({'error': 'Insufficient funds'}), 400
+        
+        session['balance'] = balance - price
+        session['owned_hand'] = player_index
+        
+        # Add transaction to history with timestamp
+        game_history = session.get('game_history', [])
+        game_history.append({
             'action': 'buy',
             'player': player_index + 1,
             'price': price,
-            'fee': 0  # No fee
-        }
-    })
+            'balance': balance - price,
+            'timestamp': datetime.now().isoformat()
+        })
+        session['game_history'] = game_history
+        
+        return jsonify({
+            'success': True,
+            'balance': int(session['balance']),
+            'owned_hand': session['owned_hand'],
+            'game_history': game_history,
+            'transaction': {
+                'action': 'buy',
+                'player': player_index + 1,
+                'price': price,
+                'fee': 0  # No fee
+            }
+        })
+    except Exception as e:
+        print(f"Error in buy_hand: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/sell-hand', methods=['POST'])
 def sell_hand():
@@ -378,36 +353,40 @@ def sell_hand():
         return jsonify({'error': 'No hand owned'}), 400
     
     data = request.get_json()
-    current_price = int(data.get('current_price', 0))
+    current_price = data.get('current_price', 0)
     
-    # No fee for selling
-    session['balance'] = int(session.get('balance', STARTING_BALANCE)) + current_price
-    owned_hand = session['owned_hand']
-    session['owned_hand'] = None
-    
-    # Add to history
-    history = session.get('game_history', [])
-    history.append({
-        'action': 'sell',
-        'player': owned_hand + 1,
-        'price': current_price,
-        'fee': 0,
-        'balance': int(session['balance'])
-    })
-    session['game_history'] = history[-10:]  # Keep last 10 transactions
-    
-    return jsonify({
-        'success': True,
-        'balance': int(session['balance']),
-        'owned_hand': session['owned_hand'],
-        'game_history': session.get('game_history', []),
-        'transaction': {
+    try:
+        balance = session.get('balance', STARTING_BALANCE)
+        owned_hand = session['owned_hand']
+        session['balance'] = balance + current_price
+        session['owned_hand'] = None
+        
+        # Add transaction to history with timestamp
+        game_history = session.get('game_history', [])
+        game_history.append({
             'action': 'sell',
             'player': owned_hand + 1,
             'price': current_price,
-            'fee': 0
-        }
-    })
+            'balance': balance + current_price,
+            'timestamp': datetime.now().isoformat()
+        })
+        session['game_history'] = game_history
+        
+        return jsonify({
+            'success': True,
+            'balance': int(session['balance']),
+            'owned_hand': session['owned_hand'],
+            'game_history': game_history,
+            'transaction': {
+                'action': 'sell',
+                'player': owned_hand + 1,
+                'price': current_price,
+                'fee': 0
+            }
+        })
+    except Exception as e:
+        print(f"Error in sell_hand: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/reset-game', methods=['POST'])
 def reset_game():

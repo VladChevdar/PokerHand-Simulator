@@ -20,14 +20,14 @@
         <!-- Game State Display -->
         <div class="game-state">
             <div class="game-state-left"><!-- Empty left section --></div>
-            <div class="balance-display">
+            <div class="game-state-content">
+                <div class="balance-display" onclick="resetGame()" title="Click to reset game">
                 <span class="balance-label">💰 Balance:</span>
-                <span id="current-balance" class="balance-amount">$150</span>
+                    <span id="current-balance" class="balance-amount">${{ balance }}</span>
                 <span id="session-profit" class="session-profit"></span>
             </div>
-            <div class="game-state-right">
-                <button id="reset-game" class="btn btn-warning">⌫  Reset Game</button>
             </div>
+            <div class="game-state-right"><!-- Empty right section --></div>
         </div>
 
         <!-- Trading Game Section -->
@@ -39,7 +39,7 @@
                         <label for="num-players-slider">Number of Hands: <span id="num-players-value">3</span></label>
                         <input type="range" id="num-players-slider" min="2" max="10" value="3">
                     </div>
-                    <button id="generate-hands" class="btn btn-primary">🎲 Generate New Hands</button>
+                    <button id="generate-hands" class="btn btn-primary" title="Sell your current hand before generating new ones">🎲 Generate New Hands</button>
                 </div>
             </div>
 
@@ -64,18 +64,42 @@
 
             <!-- Transaction History -->
             <div class="history-section">
+                <div class="history-header">
                 <h3>📊 Transaction History</h3>
+                    <button id="download-history" class="btn btn-secondary" title="Download transaction history as CSV">
+                        ⬇️ Download
+                    </button>
+                </div>
                 <div id="transaction-history" class="transaction-history">
                     <p class="no-history">No transactions yet</p>
                 </div>
             </div>
         </div>
 
-        <div class="separator">
-            <hr>
-            <span>OR</span>
-            <hr>
+        <!-- Help Section -->
+        <div class="help-section">
+            <h3>💡 How to play</h3>
+            <div class="help-content">
+                <div class="help-item">
+                    <strong>🎮 Trading Game:</strong> Generate 2-10 random hands, buy the one you think will win, then add board cards (Flop, Turn, River) to see how prices change!
+                </div>
+                <div class="help-item">
+                    <strong>💰 Pricing:</strong> Better hands cost more but have lower returns. Add board cards to see dynamic pricing!
+                </div>
+                <div class="help-item">
+                    <strong>💸 Fees:</strong> A flat $10 fee is charged each time you generate new hands. No fee on buying or selling.
+                </div>
+                <div class="help-item">
+                    <strong>🔬 Simulator:</strong> Use the original simulator below for custom hand analysis.
+                </div>
+                <div class="help-item">
+                    <strong>Card Format:</strong> Use 2-character format: Rank + Suit
+                    <br>Ranks: 2-9, T (10), J, Q, K, A
+                    <br>Suits: H (♥), D (♦), C (♣), S (♠)
+                </div>
+            </div>
         </div>
+
 
         <!-- Original Simulator Section -->
         <div class="simulator-section">
@@ -108,6 +132,10 @@
                             </div>
                             <div class="hand-cards"></div>
                         </div>
+                        <div id="loading" class="loading" style="display: none;">
+                            <div class="spinner"></div>
+                            <p>Running simulation...</p>
+                        </div>
                     </div>
                     <button id="add-player" class="btn btn-secondary">+ Add Hand</button>
                     <button id="clear-simulator" class="btn btn-danger">🗑️ Clear All</button>
@@ -127,13 +155,8 @@
                 <div class="simulation-settings">
                     <h2>Simulation Settings</h2>
                     <div class="setting-group">
-                        <label for="simulations">Number of Simulations:</label>
-                        <select id="simulations">
-                            <option value="1000">1,000 (Fast)</option>
-                            <option value="10000" selected>10,000 (Standard)</option>
-                            <option value="50000">50,000 (Accurate)</option>
-                            <option value="100000">100,000 (Very Accurate)</option>
-                        </select>
+                        <label for="simulations">Number of Simulations: <span id="simulations-value">10,000</span></label>
+                        <input type="range" id="simulations" min="1000" max="100000" value="10000" step="1000">
                     </div>
                 </div>
 
@@ -143,34 +166,6 @@
             <div id="results" class="results-section" style="display: none;">
                 <h2>📊 Results</h2>
                 <div id="results-content"></div>
-            </div>
-
-            <div id="loading" class="loading" style="display: none;">
-                <div class="spinner"></div>
-                <p>Running simulation...</p>
-            </div>
-        </div>
-
-        <div class="help-section">
-            <h3>💡 How to play</h3>
-            <div class="help-content">
-                <div class="help-item">
-                    <strong>🎮 Trading Game:</strong> Generate 2-10 random hands, buy the one you think will win, then add board cards (Flop, Turn, River) to see how prices change!
-                </div>
-                <div class="help-item">
-                    <strong>💰 Pricing:</strong> Better hands cost more but have lower returns. Add board cards to see dynamic pricing!
-                </div>
-                <div class="help-item">
-                    <strong>💸 Fees:</strong> A flat $10 fee is charged each time you generate new hands. No fee on buying or selling.
-                </div>
-                <div class="help-item">
-                    <strong>🔬 Simulator:</strong> Use the original simulator below for custom hand analysis.
-                </div>
-                <div class="help-item">
-                    <strong>Card Format:</strong> Use 2-character format: Rank + Suit
-                    <br>Ranks: 2-9, T (10), J, Q, K, A
-                    <br>Suits: H (♥), D (♦), C (♣), S (♠)
-                </div>
             </div>
         </div>
     </div>

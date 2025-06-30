@@ -47,9 +47,26 @@ function getCardImagePath(card) {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
+    // Reset simulation slider to default value
+    const simulationsSlider = document.getElementById('simulations');
+    const simulationsValue = document.getElementById('simulations-value');
+    if (simulationsSlider && simulationsValue) {
+        simulationsSlider.value = 10000;
+        simulationsValue.textContent = '10,000';
+    }
+    
+    // Add direct event listener for download button
+    const downloadBtn = document.getElementById('download-history');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', function() {
+            downloadTransactionHistory();
+        });
+    }
+    
     setupEventListeners();
     loadGameState();
     updateUI();
+    
     // Update slider label on load
     const slider = document.getElementById('num-players-slider');
     const label = document.getElementById('num-players-value');
@@ -73,17 +90,30 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCardDisplays();
         });
     });
+
+    // Download button is handled in setupEventListeners()
 });
 
 function setupEventListeners() {
     // Trading game controls
     document.getElementById('generate-hands').addEventListener('click', generateNewHands);
-    document.getElementById('reset-game').addEventListener('click', resetGame);
+    // Attach reset game listener if the element exists (some layouts use balance display instead)
+    const resetBtn = document.getElementById('reset-game');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', resetGame);
+    }
     document.getElementById('next-card-btn').addEventListener('click', nextCommunityCard);
     
     // Simulator controls (keeping original functionality)
     document.getElementById('add-player').addEventListener('click', addPlayer);
     document.getElementById('run-simulation').addEventListener('click', runSimulation);
+    
+    // Simulation slider
+    const simulationsSlider = document.getElementById('simulations');
+    const simulationsValue = document.getElementById('simulations-value');
+    simulationsSlider.addEventListener('input', function() {
+        simulationsValue.textContent = Number(this.value).toLocaleString();
+    });
     
     // Card input listeners for simulator
     document.addEventListener('input', function(e) {
@@ -115,6 +145,12 @@ function setupEventListeners() {
             const handCards = playerHand.querySelector('.hand-cards');
             if (handCards) {
                 handCards.innerHTML = '';
+            }
+            
+            // Clear inline results
+            const handResults = playerHand.querySelector('.hand-results');
+            if (handResults) {
+                handResults.remove();
             }
         });
         
@@ -153,6 +189,18 @@ async function loadGameState() {
 }
 
 async function generateNewHands() {
+    console.log('generateNewHands called - ownedHand:', gameState.ownedHand, 'communityCards length:', gameState.communityCards.length);
+    // Prevent generating new hands while still owning one UNLESS the game is over OR the hand is worth $0
+    const ownedHandValue = gameState.ownedHand !== null ? 
+        (gameState.currentHands[gameState.ownedHand]?.sell_price || gameState.currentHands[gameState.ownedHand]?.price || 0) : 0;
+    
+    if (gameState.ownedHand !== null && gameState.communityCards.length < 5 && ownedHandValue > 0) {
+        console.log('Blocked from generating new hands - still own hand and game not over');
+        showMessage('Please sell your current hand before generating new ones', 'error');
+        return;
+    }
+    console.log('Proceeding with generating new hands');
+
     const slider = document.getElementById('num-players-slider');
     const num = slider ? parseInt(slider.value) : 3;
     
@@ -242,12 +290,6 @@ async function sellHand() {
     const ownedHandData = gameState.currentHands[gameState.ownedHand];
     const currentPrice = ownedHandData.sell_price !== undefined ? ownedHandData.sell_price : (ownedHandData.price || 0);
     
-    // Prevent selling for $0
-    if (currentPrice <= 0) {
-        showMessage('Cannot sell hand for $0!', 'error');
-        return;
-    }
-    
     try {
         const response = await fetch('/api/sell-hand', {
             method: 'POST',
@@ -266,7 +308,8 @@ async function sellHand() {
         
         const oldBalance = gameState.balance;
         gameState.balance = data.balance;
-        gameState.ownedHand = data.owned_hand;
+        gameState.ownedHand = data.owned_hand; // Should be null after selling
+        console.log('After selling - ownedHand:', gameState.ownedHand, 'communityCards length:', gameState.communityCards.length);
         gameState.gameHistory = data.game_history || gameState.gameHistory;
         
         // Update session profit
@@ -274,14 +317,34 @@ async function sellHand() {
         gameState.sessionProfit += balanceChange;
         
         updateUI();
-        showMessage(`Successfully sold hand for $${currentPrice}!`, 'success');
+        if (currentPrice > 0) {
+            showMessage(`Successfully sold hand for $${currentPrice}!`, 'success');
+        } else {
+            showMessage(`Hand sold for $0 - better luck next time!`, 'success');
+        }
     } catch (error) {
         showMessage('Error selling hand: ' + error.message, 'error');
     }
 }
 
+// Make functions globally accessible for testing
+window.testDownload = function() {
+    console.log('Testing download function...');
+    downloadTransactionHistory(true);
+};
+
+window.debugGameState = function() {
+    console.log('Current game state:', gameState);
+    console.log('Download button element:', document.getElementById('download-history'));
+    const btn = document.getElementById('download-history');
+    if (btn) {
+        console.log('Button found. Onclick:', btn.onclick);
+        console.log('Button event listeners:', getEventListeners ? getEventListeners(btn) : 'getEventListeners not available');
+    }
+};
+
 async function resetGame() {
-    if (!confirm('Are you sure you want to reset the game? This will reset your balance and clear all progress.')) {
+    if (!confirm('Are you sure you want to reset the balance? This will reset all of your transactions!')) {
         return;
     }
     
@@ -355,6 +418,16 @@ function updateUI() {
     
     // Update transaction history
     updateTransactionHistory();
+    
+    // Enable/disable Generate New Hands button based on hand ownership
+    const generateBtn = document.getElementById('generate-hands');
+    if (gameState.ownedHand !== null) {
+        generateBtn.disabled = true;
+        generateBtn.title = 'Sell your current hand before generating new ones';
+    } else {
+        generateBtn.disabled = false;
+        generateBtn.title = 'Generate new hands to trade';
+    }
     
     // Enable/disable Next Card button
     const nextBtn = document.getElementById('next-card-btn');
@@ -488,11 +561,16 @@ function updateTransactionHistory() {
             }
         };
 
+        const timestamp = transaction.timestamp ? new Date(transaction.timestamp).toLocaleString() : '';
+
         return `
             <div class="transaction-item">
                 <div class="transaction-left">
                     <div class="transaction-action ${transaction.action.toLowerCase()}">
                         ${getActionIcon(transaction.action)} ${getActionText(transaction.action, transaction.player)}
+                    </div>
+                    <div class="transaction-time" style="font-size: 0.8em; color: #666;">
+                        ${timestamp}
                     </div>
                 </div>
                 <div class="transaction-amount ${transaction.action.toLowerCase() === 'sell' || transaction.action.toLowerCase() === 'refund' ? 'positive' : 'negative'}">
@@ -501,6 +579,39 @@ function updateTransactionHistory() {
             </div>
         `;
     }).join('');
+}
+
+function downloadTransactionHistory(testMode = false) {
+    if (!gameState.gameHistory || gameState.gameHistory.length === 0) {
+        showMessage('No transactions to download. Generate hands and make some trades first!', 'error');
+        return;
+    }
+
+    try {
+        const csvContent = gameState.gameHistory.map((transaction, index) => {
+            const timestamp = transaction.timestamp ? new Date(transaction.timestamp).toLocaleString() : 'N/A';
+            const action = transaction.action.toUpperCase();
+            const hand = transaction.player || '-';
+            const amount = transaction.action === 'sell' || transaction.action === 'refund' ? 
+                `+$${transaction.price}` : 
+                `-$${transaction.price}`;
+            const balance = `$${transaction.balance}`;
+            return `"${timestamp}","${action}","${hand}","${amount}","${balance}"`;
+        }).join('\n');
+
+        const finalCsvContent = `Timestamp,Action,Hand,Amount,Balance\n${csvContent}`;
+        const blob = new Blob([finalCsvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'poker_trading_history.csv';
+        link.click();
+        URL.revokeObjectURL(link.href);
+        
+        showMessage('Transaction history downloaded successfully!', 'success');
+    } catch (error) {
+        console.error('Error downloading transaction history:', error);
+        showMessage('Error downloading transaction history: ' + error.message, 'error');
+    }
 }
 
 // Utility Functions
@@ -771,39 +882,47 @@ async function runSimulation() {
 }
 
 function displayResults(data) {
+    // Hide the separate results section
     const resultsDiv = document.getElementById('results');
-    const contentDiv = document.getElementById('results-content');
+    resultsDiv.style.display = 'none';
     
-    contentDiv.innerHTML = `
-        <div class="results-summary">
-            <h3>Simulation Results (${data.community_cards.length === 0 ? 'Pre-flop' : 'With community cards'})</h3>
-            ${data.player_hands.map((hand, index) => {
-                const handType = data.hand_types && data.hand_types[index] ? data.hand_types[index].name : 'Unknown';
-                const handCards = hand.map(card => {
-                    const imagePath = getCardImagePath(card);
-                    return `<div class="card" style="background-image: url('${imagePath}')" data-card="${card}"></div>`;
-                }).join('');
-                
-                return `
-                    <div class="probability-bar">
-                        <div class="player-info">
-                            <span class="player-label">Hand ${index + 1}:</span>
-                            <div class="hand-cards">
-                                ${handCards}
-                            </div>
-                        </div>
-                        <div class="probability-info">
-                            <div class="probability-fill" style="--width: ${data.probabilities[index]}%"></div>
-                            <span class="probability-value">${data.probabilities[index]}%</span>
-                            <span class="hand-type">${handType}</span>
-                        </div>
+    // Get all player hand elements
+    const playerHands = document.querySelectorAll('.player-hand');
+    
+    // Add results to each player hand widget
+    playerHands.forEach((playerHand, index) => {
+        if (index < data.probabilities.length) {
+            // Remove any existing results
+            const existingResults = playerHand.querySelector('.hand-results');
+            if (existingResults) {
+                existingResults.remove();
+            }
+            
+            const handType = data.hand_types && data.hand_types[index] ? data.hand_types[index].name : 'Unknown';
+            
+            // Create results element
+            const resultsElement = document.createElement('div');
+            resultsElement.className = 'hand-results';
+            resultsElement.innerHTML = `
+                <div class="hand-strength">
+                    <span class="strength-label">Win Probability</span>
+                    <div class="strength-bar">
+                        <div class="strength-fill" style="width: ${data.probabilities[index]}%"></div>
                     </div>
-                `;
-            }).join('')}
-        </div>
-    `;
-    
-    resultsDiv.style.display = 'block';
+                    <span class="probability-percentage">${data.probabilities[index]}%</span>
+                </div>
+                <div class="hand-type-result">
+                    <span class="hand-type">${handType}</span>
+                </div>
+            `;
+            
+            // Insert after hand-cards
+            const handCards = playerHand.querySelector('.hand-cards');
+            if (handCards) {
+                handCards.parentNode.insertBefore(resultsElement, handCards.nextSibling);
+            }
+        }
+    });
 }
 
 function showLoading() {
@@ -934,9 +1053,8 @@ async function nextCommunityCard() {
             const isWinning = ownedHand.probability === maxProbability;
             const winningHandsCount = gameState.currentHands.filter(h => h.probability === maxProbability).length;
             
+            // Show game over message based on results
             if (isWinning) {
-                // Automatically sell the winning hand
-                await sellHand();
                 if (winningHandsCount > 1) {
                     showMessage('🤝 Game Over - Your hand was part of a draw!', 'success');
                 } else {
