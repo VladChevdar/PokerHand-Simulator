@@ -503,8 +503,9 @@ def get_dynamic_hand_prices_and_probs():
             # Convert hash to variation between -20% and +20%
             variation = (hash_val / 1000.0 - 0.5) * 0.4  # -0.2 to +0.2
             adjusted_price = p * (1 + variation)
-            # Cap the price at $100 during the game
-            capped_price = max(1, min(100, int(round(adjusted_price))))  # Ensure minimum price of $1
+            # Cap the price at $99 until river is dealt, then $100 when all community cards are dealt
+            max_price = 99  # Cap at $99 until river is dealt
+            capped_price = max(1, min(max_price, int(round(adjusted_price))))  # Ensure minimum price of $1
             buy_prices.append(capped_price)
             sell_prices.append(capped_price)
     

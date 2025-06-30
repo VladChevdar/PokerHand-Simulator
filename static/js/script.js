@@ -26,8 +26,7 @@ function formatCardForDisplay(card) {
 
 // Add card image mapping
 function getCardImagePath(card) {
-    const staticUrl = window.STATIC_URL || '/static/';
-    if (!card || card.length !== 2) return `${staticUrl}img/cards/PNG/blue_back.png`;
+    if (!card || card.length !== 2) return 'static/img/cards/PNG/blue_back.png';
     
     let rank = card[0];
     const suit = card[1];
@@ -39,11 +38,11 @@ function getCardImagePath(card) {
     
     // Face cards are uppercase in filenames
     if (['J', 'Q', 'K', 'A'].includes(rank)) {
-        return `${staticUrl}img/cards/PNG/${rank}${suit}.png`;
+        return `static/img/cards/PNG/${rank}${suit}.png`;
     }
     
     // Number cards
-    return `${staticUrl}img/cards/PNG/${rank}${suit}.png`;
+    return `static/img/cards/PNG/${rank}${suit}.png`;
 }
 
 // Initialize the application
@@ -424,10 +423,10 @@ function updateHandsDisplay() {
                 </div>
             ` : ''}
             <div class="hand-strength">
+                <span class="strength-label">Strength</span>
                 <div class="strength-bar">
                     <div class="strength-fill" style="width: ${hand.probability || 0}%"></div>
                 </div>
-                <span>${hand.probability ? hand.probability.toFixed(1) + '%' : '0%'}</span>
             </div>
             <div class="hand-actions">
                 ${isOwned ? 
@@ -589,7 +588,7 @@ function updateCardDisplays() {
             const card = input.value.toUpperCase();
             if (isValidCard(card)) {
                 const img = document.createElement('img');
-                img.src = getCardImagePath(card);
+                img.src = `/static/img/cards/PNG/${card}.png`;
                 img.alt = card;
                 img.className = 'card-image';
                 handCards.appendChild(img);
@@ -606,7 +605,7 @@ function updateCardDisplays() {
         const card = input.value.toUpperCase();
         if (isValidCard(card)) {
             const img = document.createElement('img');
-            img.src = getCardImagePath(card);
+            img.src = `/static/img/cards/PNG/${card}.png`;
             img.alt = card;
             img.className = 'card-image';
             communityDisplay.appendChild(img);
