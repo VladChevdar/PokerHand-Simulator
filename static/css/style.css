@@ -623,9 +623,22 @@ body {
 }
 
 #next-card-btn {
-    font-size: 1.1rem;
-    padding: 12px 30px;
-    min-width: 160px;
+    background: linear-gradient(135deg, #4299e1, #667eea);
+    color: #fff;
+    border: none;
+    box-shadow: 0 2px 8px rgba(66, 153, 225, 0.15);
+    font-weight: 600;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+#next-card-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #667eea, #4299e1);
+    box-shadow: 0 4px 16px rgba(66, 153, 225, 0.25);
+}
+#next-card-btn:disabled {
+    opacity: 0.6;
+    background: #b2c6f7;
+    color: #fff;
+    cursor: not-allowed;
 }
 
 .community-inputs {
@@ -980,7 +993,7 @@ body {
 .card.deal-animation {
     opacity: 0;
     transform: translateY(-50px) rotateY(180deg) scale(0.8);
-    animation: dealCard 0.8s ease-out forwards;
+    animation: dealCard 0.4s ease-out forwards;
     background-image: url('/static/img/cards/PNG/blue_back.png') !important;
 }
 

@@ -555,6 +555,11 @@ function updateHandsDisplay(animatePrices = false) {
                     </button>`
                 }
             </div>
+            ${hand.hand_type ? `
+                <div class="hand-type-display">
+                    <span class="hand-type">${hand.hand_type.name || hand.hand_type}</span>
+                </div>
+            ` : ''}
         `;
         
         handsContainer.appendChild(handElement);
@@ -665,12 +670,12 @@ function updateCommunityCardsDisplay(animateNewCards = false, previousCardCount 
                 // Switch to actual card image at the right moment (when card flips)
                 setTimeout(() => {
                     cardElement.style.backgroundImage = `url('${getCardImagePath(card)}')`;
-                }, 480); // 60% of 800ms animation
+                }, 240); // 60% of 400ms animation
                 
                 // Remove animation class after animation completes
                 setTimeout(() => {
                     cardElement.classList.remove('deal-animation', 'flop-1', 'flop-2', 'flop-3', 'turn', 'river');
-                }, 800);
+                }, 400);
             }
         });
     } else {
@@ -823,14 +828,16 @@ function showMessage(message, type) {
         return;
     }
 
-    // For errors, visually highlight the button that triggered the action
+    // For errors, visually highlight the button that triggered the action, but not Deal Flop
     if (type === 'error' && lastClickedButton) {
-        lastClickedButton.classList.add('btn-error-flash');
-        setTimeout(() => {
-            if (lastClickedButton) {
-                lastClickedButton.classList.remove('btn-error-flash');
-            }
-        }, 1500);
+        if (!lastClickedButton.id || lastClickedButton.id !== 'next-card-btn') {
+            lastClickedButton.classList.add('btn-error-flash');
+            setTimeout(() => {
+                if (lastClickedButton) {
+                    lastClickedButton.classList.remove('btn-error-flash');
+                }
+            }, 1500);
+        }
     }
     // Also log to console for debugging purposes
     console.warn(message);
