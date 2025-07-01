@@ -1026,8 +1026,8 @@ function showMessage(message, type) {
             }, 1500);
         }
     }
-    // Also log to console for debugging purposes
-    console.warn(message);
+
+    // Removed floating alert display per user request
 }
 
 // Original Simulator Functions (keeping for the simulator section)
@@ -1426,9 +1426,12 @@ async function nextCommunityCard() {
     }
     
     try {
-        // Store the current state before dealing new card
-        const oldSellPrice = gameState.currentHands[gameState.ownedHand].sell_price || 
-                           gameState.currentHands[gameState.ownedHand].price || 0;
+        // Guard against missing hand data (can happen if server session was reset)
+        let oldSellPrice = 0;
+        const ownedHandData = gameState.currentHands && gameState.currentHands[gameState.ownedHand];
+        if (ownedHandData) {
+            oldSellPrice = ownedHandData.sell_price !== undefined ? ownedHandData.sell_price : (ownedHandData.price || 0);
+        }
         const previousCardCount = gameState.communityCards.length;
         
         // Disable the button during animation
@@ -1437,15 +1440,24 @@ async function nextCommunityCard() {
         nextBtn.textContent = 'Dealing...';
         
         const response = await fetch('/api/next-community', {
-            method: 'POST'
+            method: 'POST',
+            credentials: 'same-origin' // ensure cookies (session) are always sent
         });
-        
-        const data = await response.json();
-        
+
+        // If the server responds with an error status, attempt to parse JSON for a cleaner error message
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Server error: ${response.status} - ${errorText}`);
+            let errMsg = `Server error: ${response.status}`;
+            try {
+                const errJson = await response.json();
+                if (errJson && errJson.error) errMsg = errJson.error;
+            } catch (_) {
+                // Fallback to text if JSON parsing fails
+                errMsg = await response.text();
+            }
+            throw new Error(errMsg);
         }
+
+        const data = await response.json();
         
         if (data.error) {
             showMessage(data.error, 'error');

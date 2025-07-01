@@ -634,6 +634,11 @@ def hand_prices():
 def next_community():
     """Deal next community card(s) and update hand values"""
     try:
+        # Ensure all expected session keys exist so subsequent logic
+        # does not break when the client still has state but the server
+        # session has expired/been reset (e.g. due to oversized cookies).
+        validate_session_state()
+
         # Validate session state
         if not session.get('hands'):
             return jsonify({'error': 'No hands available. Please generate hands first.'}), 400

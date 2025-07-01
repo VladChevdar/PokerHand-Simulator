@@ -669,7 +669,7 @@ body {
     opacity: 0.6;
     background: #b2c6f7;
     color: #fff;
-    cursor: not-allowed;
+    cursor: default;
 }
 
 .community-inputs {
@@ -1304,7 +1304,7 @@ body {
 
 .btn:disabled {
     opacity: 0.6;
-    cursor: not-allowed;
+    cursor: default;
     transform: none !important;
 }
 
