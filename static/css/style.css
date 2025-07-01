@@ -214,7 +214,7 @@ body {
 }
 
 .leverage-control input[type="range"] {
-    width: 120px;
+    width: 240px;
     vertical-align: middle;
 }
 
@@ -683,6 +683,10 @@ body {
 }
 
 /* History Section */
+.history-section {
+    margin-top: 40px;
+}
+
 .history-section h3 {
     color: #2d3748;
     margin-bottom: 20px;
@@ -697,13 +701,34 @@ body {
     margin-bottom: 15px;
 }
 
-.history-header h3 {
-    margin: 0;
+.history-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
 }
 
-#download-history {
-    font-size: 0.9rem;
-    padding: 8px 16px;
+.history-title-group:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.history-title-group h3 {
+    margin: 0;
+    user-select: none;
+}
+
+.toggle-icon {
+    font-size: 0.8em;
+    transition: transform 0.3s ease;
+    color: #666;
+}
+
+.transaction-history.hidden + .history-title-group .toggle-icon,
+.transaction-history.hidden ~ .history-header .toggle-icon {
+    transform: rotate(-90deg);
 }
 
 .transaction-history {
@@ -713,13 +738,25 @@ body {
     max-height: 300px;
     overflow-y: auto;
     border: 1px solid #e2e8f0;
+    transition: max-height 0.3s ease-out, opacity 0.2s ease-out, margin 0.3s ease-out, padding 0.3s ease-out;
+}
+
+.transaction-history.hidden {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin: 0;
+    opacity: 0;
+    overflow: hidden;
+    border: none;
 }
 
 .transaction-item {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 12px;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 8px;
     border-bottom: 1px solid #e2e8f0;
     transition: background-color 0.2s ease;
 }
@@ -734,8 +771,9 @@ body {
 
 .transaction-left {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
 }
 
 .transaction-action {
@@ -746,7 +784,6 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    min-width: 100px;
 }
 
 .transaction-action.buy {
@@ -769,25 +806,25 @@ body {
     color: #6b46c1;
 }
 
-.transaction-details {
-    color: #4a5568;
-    font-size: 0.9rem;
+.transaction-time {
+    font-size: 0.75rem;
+    color: #718096;
+    margin-left: 30px;
 }
 
 .transaction-amount {
     font-weight: 600;
     font-size: 1.1rem;
-    margin-left: auto;
     min-width: 80px;
     text-align: right;
 }
 
 .transaction-amount.positive {
-    color: #38a169;  /* Green color for positive amounts */
+    color: #38a169;
 }
 
 .transaction-amount.negative {
-    color: #e53e3e;  /* Red color for negative amounts */
+    color: #e53e3e;
 }
 
 /* Separator */
@@ -937,7 +974,7 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: 0;
 }
 
@@ -946,6 +983,8 @@ body {
     font-weight: 600;
     color: #2d3748;
     margin: 0;
+    text-align: center;
+    flex-grow: 1;
 }
 
 .card-inputs {
@@ -1196,8 +1235,9 @@ body {
 }
 
 .setting-group input[type="range"] {
-    width: 100%;
-    margin: 10px 0;
+    width: 50%;
+    margin: 10px auto;
+    display: block;
 }
 
 #simulations-value {
@@ -1813,4 +1853,22 @@ body {
 
 #sim-tips-section.help-section {
     margin-bottom: 32px !important;
+}
+
+.centered-text {
+    text-align: center;
+}
+
+#download-history {
+    font-size: 1.2rem;
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    color: #666;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+#download-history:hover {
+    color: #2d3748;
+    transform: scale(1.1);
 }
