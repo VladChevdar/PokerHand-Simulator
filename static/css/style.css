@@ -68,11 +68,14 @@ body {
 
 /* Game State Display */
 .game-state {
-    background: white;
+    background: #fff9e3;
     border-radius: 20px;
     padding: 15px 20px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-    margin-bottom: 30px;
+    margin-bottom: -30px;
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.10);
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
@@ -117,13 +120,13 @@ body {
 }
 
 .balance-label {
-    color: #2d3748;
-    font-size: 1.4rem;
+    color: #bfa14a;
+    font-size: 1.3rem;
 }
 
 .balance-amount {
-    color: #38a169;
-    font-size: 1.5rem;
+    color: #bfa14a;
+    font-size: 1.3rem;
 }
 
 .session-profit {
@@ -152,6 +155,9 @@ body {
     border-radius: 20px;
     padding: 40px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    margin-top: 0;
+    position: relative;
+    z-index: 1;
     margin-bottom: 30px;
 }
 
@@ -828,17 +834,56 @@ body {
 }
 
 .setup-section {
-    display: grid;
-    gap: 30px;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    align-items: flex-start;
 }
 
-.card-input-section h2,
-.community-cards-section h2,
-.simulation-settings h2 {
-    color: #2d3748;
-    margin-bottom: 20px;
-    font-size: 1.5rem;
-    font-weight: 600;
+/* Card-like containers for sub-sections */
+.card-input-section,
+.community-cards-section,
+.simulation-settings {
+    background: #f7fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 25px;
+}
+
+/* Community card inputs */
+.community-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.community-inputs .community-card {
+    padding: 8px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    width: 100px;
+    text-align: center;
+    text-transform: uppercase;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+/* Buttons container */
+.simulator-buttons {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+#run-simulation {
+    width: 100%;
+    max-width: 240px;
+}
+
+@media (max-width: 768px) {
+    .setup-section {
+        grid-template-columns: 1fr;
+    }
 }
 
 .player-hands {
@@ -851,6 +896,7 @@ body {
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
     scroll-snap-type: x proximity;
+    justify-content: center;
 }
 
 .player-hands::-webkit-scrollbar {
@@ -889,9 +935,10 @@ body {
 
 .player-header {
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
     align-items: center;
-    margin-bottom: 15px;
+    justify-content: space-between;
+    gap: 0;
 }
 
 .player-header h3 {
@@ -1130,6 +1177,11 @@ body {
     margin-left: 0 !important;
     position: static !important;
     z-index: auto !important;
+    margin-right: 8px;
+}
+
+.community-display .card-image:last-child {
+    margin-right: 0;
 }
 
 .setting-group {
@@ -1677,4 +1729,88 @@ body {
     margin-bottom: 24px;
     margin-top: 8px;
     justify-content: center;
+}
+
+/* Center headings in the simulator section */
+.simulator-section > h2,
+.simulator-section > p,
+.community-cards-section h3 {
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Sub-section headings */
+.card-input-section h2,
+.community-cards-section h3,
+.simulation-settings h2 {
+    color: #2d3748;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+/* -------------------------------------------------- */
+/* Simulator centering tweaks                        */
+/* -------------------------------------------------- */
+#run-simulation {
+    display: block;
+    margin: 30px auto 0;
+}
+
+.player-hand {
+    text-align: center;
+}
+
+.player-header {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.card-inputs {
+    justify-content: center;
+}
+
+.community-inputs {
+    justify-content: center;
+}
+
+.card-image.undealt {
+    filter: grayscale(40%);
+}
+
+/* Center Select Hands heading */
+.card-input-section h2 {
+    text-align: center;
+}
+
+/* Restore player-header layout (title left, remove button right) */
+.player-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0;
+}
+
+.texas-header {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #6b7280;
+    text-align: center;
+    margin-top: 16px;
+    margin-bottom: 20px;
+    letter-spacing: 0.5px;
+}
+
+.centered-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 32px;
+    margin-bottom: 20px;
+}
+
+#sim-tips-section.help-section {
+    margin-bottom: 32px !important;
 }
