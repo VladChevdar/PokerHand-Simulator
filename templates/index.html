@@ -104,9 +104,14 @@
                         <h3>📊 Transaction History</h3>
                         <span class="toggle-icon">▼</span>
                     </div>
-                    <button id="download-history" class="btn btn-secondary" title="Download transaction history as CSV">
-                        ⬇ Download
-                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="download-history" class="btn btn-secondary" title="Download transaction history as CSV">
+                            ↓ Transactions
+                        </button>
+                        <button id="download-message-log" class="btn btn-secondary" title="Download message log as CSV">
+                            ↓ Messages
+                        </button>
+                    </div>
                 </div>
                 <div id="transaction-history" class="transaction-history">
                     <p class="no-history">No transactions yet</p>

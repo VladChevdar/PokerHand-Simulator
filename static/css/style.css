@@ -669,7 +669,7 @@ body {
     opacity: 0.6;
     background: #b2c6f7;
     color: #fff;
-    cursor: default;
+    cursor: not-allowed;
 }
 
 .community-inputs {
@@ -1283,13 +1283,31 @@ body {
 }
 
 .btn-secondary {
-    background: #e2e8f0;
-    color: #2d3748;
+    background-color: #e2e8f0;
+    color: #4a5568;
+    border: 1px solid #cbd5e0;
 }
 
 .btn-secondary:hover {
-    background: #cbd5e0;
-    transform: translateY(-1px);
+    background-color: #cbd5e0;
+}
+
+/* Updated unified style */
+#download-message-log,
+#download-history {
+    font-size: 1.2rem;
+    padding: 8px 16px;
+    background-color: transparent;
+    border: 1px solid rgba(203, 213, 224, 0.5);
+    color: #4a5568;
+    transition: color 0.2s ease, background-color 0.2s ease;
+    position: relative;
+}
+
+#download-message-log:hover,
+#download-history:hover {
+    color: #2d3748;
+    background-color: rgba(203, 213, 224, 0.1);
 }
 
 .btn-warning {
@@ -1303,9 +1321,9 @@ body {
 }
 
 .btn:disabled {
-    opacity: 0.6;
-    cursor: default;
-    transform: none !important;
+    opacity: 0.5;
+    cursor: default !important;
+    pointer-events: none;
 }
 
 .results-section {
@@ -1857,18 +1875,4 @@ body {
 
 .centered-text {
     text-align: center;
-}
-
-#download-history {
-    font-size: 1.2rem;
-    padding: 8px 16px;
-    background: transparent;
-    border: none;
-    color: #666;
-    transition: color 0.2s ease, transform 0.2s ease;
-}
-
-#download-history:hover {
-    color: #2d3748;
-    transform: scale(1.1);
 }

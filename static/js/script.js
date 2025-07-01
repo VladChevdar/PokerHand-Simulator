@@ -9,7 +9,8 @@ let gameState = {
     sessionProfit: 0,               // Track profit for current trading session (computed dynamically)
     sessionStartBalance: 0,         // Balance after last "Generate Hands" action
     previousPrices: [],             // Track previous prices for animation
-    leverage: 1                     // Current leverage multiplier (1x to 10x)
+    leverage: 1,                    // Current leverage multiplier (1x to 10x)
+    messageLog: []                  // Store all messages for download
 };
 
 // Card validation and display logic
@@ -174,6 +175,12 @@ function setupEventListeners() {
         toggleHistory.addEventListener('click', function() {
             transactionHistory.classList.toggle('hidden');
         });
+    }
+    
+    // Message log download
+    const downloadMessageLogBtn = document.getElementById('download-message-log');
+    if (downloadMessageLogBtn) {
+        downloadMessageLogBtn.addEventListener('click', downloadMessageLog);
     }
     
     // Simulator controls (keeping original functionality)
@@ -510,6 +517,7 @@ async function resetGame() {
         gameState.sessionProfit = 0; // Reset session profit to 0
         gameState.sessionStartBalance = data.balance;
         gameState.leverage = data.leverage || 1; // Reset leverage
+        gameState.messageLog = []; // Clear message log
         
         // Clear UI
         document.getElementById('hands-container').innerHTML = '<p class="no-hands">Click "Generate New Hands" to start trading!</p>';
@@ -1010,10 +1018,19 @@ document.addEventListener('click', function(e) {
 });
 
 function showMessage(message, type) {
-    if (type === 'success') {
-        // Suppress success banners – do nothing
-        return;
-    }
+    // Log all messages with timestamp for later download
+    const logEntry = {
+        timestamp: new Date().toISOString(),
+        type: type,
+        message: message,
+        context: {
+            balance: gameState.balance,
+            ownedHand: gameState.ownedHand,
+            communityCardsCount: gameState.communityCards ? gameState.communityCards.length : 0,
+            handsCount: gameState.currentHands ? gameState.currentHands.length : 0
+        }
+    };
+    gameState.messageLog.push(logEntry);
 
     // For errors, visually highlight the button that triggered the action, but not Deal Flop
     if (type === 'error' && lastClickedButton) {
@@ -1027,7 +1044,46 @@ function showMessage(message, type) {
         }
     }
 
-    // Removed floating alert display per user request
+    // Log to console for immediate debugging
+    if (type === 'error') {
+        console.error(`[${type.toUpperCase()}] ${message}`);
+    } else {
+        console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+}
+
+async function downloadMessageLog() {
+    if (!gameState.messageLog || gameState.messageLog.length === 0) {
+        showMessage('No messages to download. Play the game first!', 'error');
+        return;
+    }
+
+    try {
+        // Create CSV content with headers
+        const csvContent = gameState.messageLog.map((entry, index) => {
+            const timestamp = new Date(entry.timestamp).toLocaleString();
+            const type = entry.type.toUpperCase();
+            const message = entry.message.replace(/"/g, '""'); // Escape quotes
+            const balance = entry.context.balance || 'N/A';
+            const ownedHand = entry.context.ownedHand !== null ? entry.context.ownedHand + 1 : 'None';
+            const communityCards = entry.context.communityCardsCount || 0;
+            const handsCount = entry.context.handsCount || 0;
+            return `"${timestamp}","${type}","${message}","${balance}","${ownedHand}","${communityCards}","${handsCount}"`;
+        }).join('\n');
+
+        const finalCsvContent = `Timestamp,Type,Message,Balance,Owned Hand,Community Cards,Total Hands\n${csvContent}`;
+        const blob = new Blob([finalCsvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'poker_game_messages.csv';
+        link.click();
+        URL.revokeObjectURL(link.href);
+        
+        showMessage('Message log downloaded successfully!', 'success');
+    } catch (error) {
+        console.error('Error downloading message log:', error);
+        showMessage('Error downloading message log: ' + error.message, 'error');
+    }
 }
 
 // Original Simulator Functions (keeping for the simulator section)
