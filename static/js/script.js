@@ -736,59 +736,66 @@ function checkSimulatorScrollOverflow() {
 
 function updateCommunityCardsDisplay(animateNewCards = false, previousCardCount = 0) {
     const display = document.getElementById('community-cards-display');
-    
-    if (!gameState.communityCards || gameState.communityCards.length === 0) {
-        display.innerHTML = '<p class="no-community">No community cards yet</p>';
-        return;
-    }
-    
-    if (animateNewCards) {
-        // Clear the display if we're dealing the flop (first cards)
-        if (previousCardCount === 0) {
-            display.innerHTML = '';
-        }
-        
-        // Animate only the new cards
-        gameState.communityCards.forEach((card, index) => {
-            if (index >= previousCardCount) {
-                // This is a new card, add it with animation
-                const cardElement = document.createElement('div');
-                cardElement.className = 'card deal-animation';
-                // Start with card back - actual card image will be set during animation
+
+    // Ensure display container exists
+    if (!display) return;
+
+    // Total number of community card slots in Texas Hold'em
+    const TOTAL_SLOTS = 5;
+
+    // Fallback in case state properties are missing
+    const communityCards = (gameState.communityCards || []).slice();
+
+    // Clear the current board
+    display.innerHTML = '';
+
+    for (let i = 0; i < TOTAL_SLOTS; i++) {
+        const cardElement = document.createElement('div');
+        cardElement.className = 'card';
+        cardElement.setAttribute('data-slot', i);
+
+        if (i < communityCards.length) {
+            // This slot already has a dealt card
+            const card = communityCards[i];
+            const frontImage = getCardImagePath(card);
+
+            if (animateNewCards && i >= previousCardCount) {
+                // Animate flip for newly dealt cards
+                cardElement.classList.add('deal-animation');
                 cardElement.style.backgroundImage = `url('/static/img/cards/PNG/blue_back.png')`;
-                cardElement.setAttribute('data-card', card);
-                
-                // Add specific animation classes based on position
-                if (previousCardCount === 0) {
-                    // Flop cards (first 3)
-                    cardElement.classList.add(`flop-${index + 1}`);
-                } else if (previousCardCount === 3) {
-                    // Turn card
-                    cardElement.classList.add('turn');
-                } else if (previousCardCount === 4) {
-                    // River card
-                    cardElement.classList.add('river');
-                }
-                
-                display.appendChild(cardElement);
-                
-                // Switch to actual card image at the right moment (when card flips)
+
+                // Flip to front image part-way through animation
                 setTimeout(() => {
-                    cardElement.style.backgroundImage = `url('${getCardImagePath(card)}')`;
-                }, 240); // 60% of 400ms animation
-                
-                // Remove animation class after animation completes
+                    cardElement.style.backgroundImage = `url('${frontImage}')`;
+                }, 240);
+
+                // Clean up animation classes afterwards
                 setTimeout(() => {
                     cardElement.classList.remove('deal-animation', 'flop-1', 'flop-2', 'flop-3', 'turn', 'river');
                 }, 400);
+
+                // Extra class for correct stagger (uses existing CSS delays)
+                if (previousCardCount === 0) {
+                    // Flop
+                    cardElement.classList.add(`flop-${i + 1}`);
+                } else if (previousCardCount === 3) {
+                    cardElement.classList.add('turn');
+                } else if (previousCardCount === 4) {
+                    cardElement.classList.add('river');
+                }
+            } else {
+                // Already dealt previously – just show front
+                cardElement.style.backgroundImage = `url('${frontImage}')`;
             }
-        });
-    } else {
-        // No animation, just display all cards
-        display.innerHTML = gameState.communityCards.map(card => {
-            const imagePath = getCardImagePath(card);
-            return `<div class="card" style="background-image: url('${imagePath}')" data-card="${card}"></div>`;
-        }).join('');
+
+            cardElement.setAttribute('data-card', card);
+        } else {
+            // Undealt slot – show card back
+            cardElement.style.backgroundImage = `url('/static/img/cards/PNG/blue_back.png')`;
+            cardElement.classList.add('undealt');
+        }
+
+        display.appendChild(cardElement);
     }
 }
 
