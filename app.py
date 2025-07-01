@@ -104,6 +104,8 @@ def validate_session_state():
         session['owned_hand'] = None
     if 'game_history' not in session:
         session['game_history'] = []
+    if 'full_game_history' not in session:
+        session['full_game_history'] = []
     if 'leverage' not in session:
         session['leverage'] = 1
     
@@ -114,7 +116,7 @@ def validate_session_state():
     if owned_hand is not None and (not hands or owned_hand >= len(hands)):
         session['owned_hand'] = None
         
-    # Limit game history to last 20 transactions to reduce session size
+    # Keep display history limited but don't affect full history
     if len(session.get('game_history', [])) > 20:
         session['game_history'] = session['game_history'][-20:]
         
@@ -217,6 +219,7 @@ def get_game_state():
         'balance': session.get('balance', STARTING_BALANCE),
         'owned_hand': session.get('owned_hand'),
         'game_history': session.get('game_history', []),
+        'full_game_history': session.get('full_game_history', []),
         'leverage': session.get('leverage', 1)
     })
 
@@ -249,17 +252,17 @@ def generate_hands():
                 prev_sell_price = get_dynamic_hand_prices_and_probs()[1][prev_hand_index]
                 refund_amount = prev_sell_price * prev_leverage
                 session['balance'] += refund_amount
-                # Add refund transaction
-                game_history = session.get('game_history', [])
-                game_history.append({
+                # Add refund transaction to both histories
+                transaction = {
                     'action': 'refund',
                     'player': prev_hand_index + 1,
                     'price': refund_amount,
                     'balance': session['balance'],
                     'timestamp': datetime.now().isoformat(),
                     'leverage': prev_leverage
-                })
-                session['game_history'] = game_history
+                }
+                session['game_history'].append(transaction)
+                session['full_game_history'].append(transaction)
         
         # Calculate total cost (fee - refund)
         total_cost = GENERATE_HANDS_FEE - refund_amount
@@ -269,19 +272,21 @@ def generate_hands():
         
         session['balance'] = balance - total_cost
         
-        # Add transaction to history with timestamp
-        game_history = session.get('game_history', [])
+        # Add transaction to both histories with timestamp
         timestamp = datetime.now().isoformat()
-        
-        game_history.append({
+        transaction = {
             'action': 'generate',
-            'player': None,
+            'player': num_players,
             'price': GENERATE_HANDS_FEE,
             'balance': balance - total_cost,
             'timestamp': timestamp
-        })
+        }
+        session['game_history'].append(transaction)
+        session['full_game_history'].append(transaction)
         
-        session['game_history'] = game_history
+        # Validate and trim display history if needed
+        if len(session['game_history']) > 20:
+            session['game_history'] = session['game_history'][-20:]
         
         hands = generate_random_hands(num_players)
         
@@ -329,7 +334,8 @@ def generate_hands():
             'hands': hand_data,
             'balance': session['balance'],
             'owned_hand': session['owned_hand'],
-            'game_history': game_history,
+            'game_history': session['game_history'],
+            'full_game_history': session['full_game_history'],
             'refund_amount': refund_amount if refund_amount > 0 else None
         })
         
@@ -362,7 +368,6 @@ def buy_hand():
         leverage = session.get('leverage', 1)
         
         # Calculate the actual cost (leveraged amount)
-        # With 2x leverage on a $50 hand, you pay $100
         leveraged_cost = price * leverage
         
         if balance < leveraged_cost:
@@ -382,9 +387,8 @@ def buy_hand():
             hand_types = get_hand_type([hands[player_index]], community_cards)
             hand_type = hand_types[0]['name'] if hand_types else None
         
-        # Add transaction to history with timestamp and additional info
-        game_history = session.get('game_history', [])
-        game_history.append({
+        # Add transaction to both histories
+        transaction = {
             'action': 'buy',
             'player': player_index + 1,
             'price': leveraged_cost,
@@ -392,23 +396,22 @@ def buy_hand():
             'timestamp': datetime.now().isoformat(),
             'leverage': leverage,
             'leveraged_cost': leveraged_cost
-        })
-        session['game_history'] = game_history
+        }
+        session['game_history'].append(transaction)
+        session['full_game_history'].append(transaction)
+        
+        # Validate and trim display history if needed
+        if len(session['game_history']) > 20:
+            session['game_history'] = session['game_history'][-20:]
         
         return jsonify({
             'success': True,
             'balance': int(session['balance']),
             'owned_hand': session['owned_hand'],
-            'game_history': game_history,
+            'game_history': session['game_history'],
+            'full_game_history': session['full_game_history'],
             'leverage': leverage,
-            'transaction': {
-                'action': 'buy',
-                'player': player_index + 1,
-                'price': leveraged_cost,
-                'leverage': leverage,
-                'leveraged_cost': leveraged_cost,
-                'fee': 0  # No fee
-            }
+            'transaction': transaction
         })
     except Exception as e:
         print(f"Error in buy_hand: {str(e)}")
@@ -420,77 +423,66 @@ def sell_hand():
     current_price = data.get('current_price', 0)
     
     try:
-        balance = session.get('balance', STARTING_BALANCE)
-        owned_hand = session.get('owned_hand')
+        validate_session_state()
+        
+        if session.get('owned_hand') is None:
+            return jsonify({'error': 'No hand owned to sell'}), 400
+        
+        owned_hand_index = session.get('owned_hand')
         hands = session.get('hands', [])
         
-        if owned_hand is None:
-            return jsonify({'error': 'No hand owned'}), 400
-            
-        if not hands or owned_hand >= len(hands):
-            return jsonify({'error': 'Invalid hand state. Please generate new hands.'}), 400
+        if owned_hand_index >= len(hands):
+            return jsonify({'error': 'Invalid hand index'}), 400
         
-        # Get hand details and current state
-        hands = session.get('hands', [])
-        community_cards = session.get('community_cards', [])
-        _, _, probabilities = get_dynamic_hand_prices_and_probs()
-        
-        # Get hand type
-        hand_types = get_hand_type([hands[owned_hand]], community_cards)
-        hand_type = hand_types[0]['name'] if hand_types else None
-        
-        # Find the buy price and leverage from history to calculate profit/loss
-        buy_price = None
-        buy_leverage = 1
+        # Get the leverage used when buying this hand
+        leverage = 1
         for transaction in reversed(session.get('game_history', [])):
-            if transaction['action'] == 'buy' and transaction['player'] == owned_hand + 1:
-                buy_price = transaction['price']
-                buy_leverage = transaction.get('leverage', 1)
+            if transaction['action'] == 'buy' and transaction['player'] == owned_hand_index + 1:
+                leverage = transaction.get('leverage', 1)
                 break
         
-        # Calculate leveraged profit/loss and actual payout
-        if buy_price is not None:
-            # Profit/Loss is difference times leverage
-            base_profit_loss = current_price - buy_price
-            leveraged_profit_loss = base_profit_loss * buy_leverage
-            # User receives the current price multiplied by leverage (they paid price*leverage when buying)
-            actual_payout = current_price * buy_leverage
-        else:
-            leveraged_profit_loss = None
-            actual_payout = current_price * buy_leverage
+        # Calculate actual payout with leverage
+        actual_payout = current_price * leverage
         
-        session['balance'] = balance + actual_payout
+        # Find the original buy price to calculate profit/loss
+        buy_price = None
+        for transaction in reversed(session.get('game_history', [])):
+            if transaction['action'] == 'buy' and transaction['player'] == owned_hand_index + 1:
+                buy_price = transaction.get('price', 0)
+                break
+        
+        leveraged_profit_loss = None
+        if buy_price is not None:
+            leveraged_profit_loss = actual_payout - buy_price
+        
+        session['balance'] += actual_payout
         session['owned_hand'] = None
         
-        # Add transaction to history with timestamp and additional info
-        game_history = session.get('game_history', [])
-        game_history.append({
+        # Add transaction to both histories
+        transaction = {
             'action': 'sell',
-            'player': owned_hand + 1,
-            'price': current_price,
-            'balance': balance + actual_payout,
+            'player': owned_hand_index + 1,
+            'price': actual_payout,
+            'balance': session['balance'],
             'timestamp': datetime.now().isoformat(),
-            'leverage': buy_leverage,
-            'leveraged_profit_loss': leveraged_profit_loss,
-            'actual_payout': actual_payout
-        })
-        session['game_history'] = game_history
+            'leverage': leverage,
+            'actual_payout': actual_payout,
+            'leveraged_profit_loss': leveraged_profit_loss
+        }
+        session['game_history'].append(transaction)
+        session['full_game_history'].append(transaction)
+        
+        # Validate and trim display history if needed
+        if len(session['game_history']) > 20:
+            session['game_history'] = session['game_history'][-20:]
         
         return jsonify({
             'success': True,
-            'balance': int(session['balance']),
+            'balance': session['balance'],
             'owned_hand': session['owned_hand'],
-            'game_history': game_history,
-            'leverage': buy_leverage,
-            'transaction': {
-                'action': 'sell',
-                'player': owned_hand + 1,
-                'price': current_price,
-                'leverage': buy_leverage,
-                'leveraged_profit_loss': leveraged_profit_loss,
-                'actual_payout': actual_payout,
-                'fee': 0
-            }
+            'game_history': session['game_history'],
+            'full_game_history': session['full_game_history'],
+            'transaction': transaction
         })
     except Exception as e:
         print(f"Error in sell_hand: {str(e)}")
@@ -498,7 +490,7 @@ def sell_hand():
 
 @app.route('/api/set-leverage', methods=['POST'])
 def set_leverage():
-    """Set leverage multiplier (1x to 10x)"""
+    """Set leverage multiplier (1x to 20x)"""
     data = request.get_json()
     leverage = data.get('leverage', 1)
     
@@ -506,8 +498,8 @@ def set_leverage():
         validate_session_state()
         
         leverage = int(leverage)
-        if leverage < 1 or leverage > 10:
-            return jsonify({'error': 'Leverage must be between 1x and 10x'}), 400
+        if leverage < 1 or leverage > 20:
+            return jsonify({'error': 'Leverage must be between 1x and 20x'}), 400
         
         # Don't allow changing leverage while owning a hand
         if session.get('owned_hand') is not None:
@@ -743,6 +735,18 @@ def get_hand_type(player_hands, community_cards):
         })
     
     return hand_types
+
+def downloadTransactionHistory(testMode = False):
+    validate_session_state()
+    return session.get('full_game_history', [])
+
+@app.route('/api/download-history')
+def get_download_history():
+    """Get full transaction history for download"""
+    validate_session_state()
+    return jsonify({
+        'game_history': session.get('full_game_history', [])
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=8081) 

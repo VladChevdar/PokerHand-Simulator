@@ -5,6 +5,7 @@ let gameState = {
     currentHands: [],
     communityCards: [],
     gameHistory: [],
+    fullGameHistory: [],
     sessionProfit: 0,               // Track profit for current trading session (computed dynamically)
     sessionStartBalance: 0,         // Balance after last "Generate Hands" action
     previousPrices: [],             // Track previous prices for animation
@@ -84,6 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const leverageSlider = document.getElementById('leverage-slider');
     const leverageLabel = document.getElementById('leverage-value');
     if (leverageSlider && leverageLabel) {
+        leverageSlider.max = 20; // Set max to 20x
         leverageSlider.addEventListener('input', function() {
             const leverage = parseInt(this.value);
             leverageLabel.textContent = `${leverage}x`;
@@ -164,6 +166,15 @@ function setupEventListeners() {
         resetBtn.addEventListener('click', resetGame);
     }
     document.getElementById('next-card-btn').addEventListener('click', nextCommunityCard);
+    
+    // Transaction history toggle
+    const toggleHistory = document.getElementById('toggle-history');
+    const transactionHistory = document.getElementById('transaction-history');
+    if (toggleHistory && transactionHistory) {
+        toggleHistory.addEventListener('click', function() {
+            transactionHistory.classList.toggle('hidden');
+        });
+    }
     
     // Simulator controls (keeping original functionality)
     document.getElementById('add-player').addEventListener('click', addPlayer);
@@ -248,7 +259,8 @@ async function loadGameState() {
         const data = await response.json();
         gameState.balance = data.balance;
         gameState.ownedHand = data.owned_hand;
-        gameState.gameHistory = data.game_history || [];
+        gameState.gameHistory = data.game_history;  // This is display history (last 20)
+        gameState.fullGameHistory = data.full_game_history;  // Full history for downloads
         gameState.leverage = data.leverage || 1;
         if (!gameState.sessionStartBalance) {
             gameState.sessionStartBalance = data.balance;
@@ -265,6 +277,7 @@ async function loadGameState() {
         updateUI();
     } catch (error) {
         console.error('Error loading game state:', error);
+        showMessage('Error loading game state: ' + error.message, 'error');
     }
 }
 
@@ -590,7 +603,7 @@ function updateUI() {
         if (gameState.ownedHand !== null) {
             leverageSlider.title = 'Cannot change leverage while owning a hand';
         } else {
-            leverageSlider.title = 'Set leverage multiplier (1x to 10x)';
+            leverageSlider.title = 'Set leverage multiplier (1x to 20x)';
         }
     }
     
@@ -868,7 +881,7 @@ function updateTransactionHistory() {
                 case 'buy': return `BUY Hand ${player}${leverageText}`;
                 case 'sell': return `SELL Hand ${player}${leverageText}`;
                 case 'refund': return `REFUND Hand ${player}${leverageText}`;
-                case 'generate': return 'GENERATE Hands';
+                case 'generate': return `GENERATE ${player} Hands`;
                 default: return action;
             }
         };
@@ -901,14 +914,24 @@ function updateTransactionHistory() {
     }).join('');
 }
 
-function downloadTransactionHistory(testMode = false) {
+async function downloadTransactionHistory(testMode = false) {
     if (!gameState.gameHistory || gameState.gameHistory.length === 0) {
         showMessage('No transactions to download. Generate hands and make some trades first!', 'error');
         return;
     }
 
     try {
-        const csvContent = gameState.gameHistory.map((transaction, index) => {
+        // Get full history from server
+        const response = await fetch('/api/download-history');
+        const data = await response.json();
+        const fullHistory = data.game_history;
+
+        if (!fullHistory || fullHistory.length === 0) {
+            showMessage('No transactions available to download', 'error');
+            return;
+        }
+
+        const csvContent = fullHistory.map((transaction, index) => {
             const timestamp = transaction.timestamp ? new Date(transaction.timestamp).toLocaleString() : 'N/A';
             const action = transaction.action.toUpperCase();
             const hand = transaction.player || '-';

@@ -94,3 +94,10 @@ PokerHands/
 ## License
 
 This project is open source and available under the MIT License. 
+
+.cards {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px; /* optional: space between cards */
+} 
