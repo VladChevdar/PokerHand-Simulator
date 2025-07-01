@@ -116,6 +116,43 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initial check for simulator scroll overflow
     checkSimulatorScrollOverflow();
+
+    // Render initial card placeholders
+    updateCardDisplays();
+
+    // Toggle How to Play (help) section
+    const helpSection = document.getElementById('help-section');
+    const toggleHelp = document.getElementById('toggle-help');
+    const hideHelp = document.getElementById('hide-help');
+    if (toggleHelp && helpSection) {
+        toggleHelp.addEventListener('click', function() {
+            helpSection.style.display = 'block';
+            toggleHelp.style.display = 'none';
+        });
+    }
+    if (hideHelp && helpSection && toggleHelp) {
+        hideHelp.addEventListener('click', function() {
+            helpSection.style.display = 'none';
+            toggleHelp.style.display = 'block';
+        });
+    }
+
+    // Toggle Simulation Tips section
+    const simTipsSection = document.getElementById('sim-tips-section');
+    const toggleSimTips = document.getElementById('toggle-sim-tips');
+    const hideSimTips = document.getElementById('hide-sim-tips');
+    if (toggleSimTips && simTipsSection) {
+        toggleSimTips.addEventListener('click', function() {
+            simTipsSection.style.display = 'block';
+            toggleSimTips.style.display = 'none';
+        });
+    }
+    if (hideSimTips && simTipsSection && toggleSimTips) {
+        hideSimTips.addEventListener('click', function() {
+            simTipsSection.style.display = 'none';
+            toggleSimTips.style.display = 'block';
+        });
+    }
 });
 
 function setupEventListeners() {
@@ -156,27 +193,23 @@ function setupEventListeners() {
 
     // Add event listener for clear simulator button
     document.getElementById('clear-simulator').addEventListener('click', function() {
-        // Clear all player hand inputs and their card displays
+        // Remove all but the first two player-hand widgets
         const playerHands = document.querySelectorAll('.player-hand');
-        playerHands.forEach(playerHand => {
-            // Clear inputs
+        for (let i = playerHands.length - 1; i >= 2; i--) {
+            playerHands[i].remove();
+        }
+        // Clear inputs and results for the remaining two
+        document.querySelectorAll('.player-hand').forEach(playerHand => {
             const inputs = playerHand.querySelectorAll('.card-input');
-            inputs.forEach(input => {
-                input.value = '';
-            });
-            
-            // Clear card images
+            inputs.forEach(input => { input.value = ''; });
             const handCards = playerHand.querySelector('.hand-cards');
-            if (handCards) {
-                handCards.innerHTML = '';
-            }
-            
-            // Clear inline results
+            if (handCards) handCards.innerHTML = '';
             const handResults = playerHand.querySelector('.hand-results');
-            if (handResults) {
-                handResults.remove();
-            }
+            if (handResults) handResults.remove();
         });
+        
+        // Reset playerCount to match number of player-hand widgets
+        playerCount = document.querySelectorAll('.player-hand').length;
         
         // Clear all community card inputs and their displays
         const communityInputs = document.querySelectorAll('.community-card');
@@ -194,6 +227,16 @@ function setupEventListeners() {
         const resultsDiv = document.getElementById('results');
         if (resultsDiv) {
             resultsDiv.style.display = 'none';
+        }
+
+        // Re-render placeholders
+        updateCardDisplays();
+
+        // Re-enable add-player button and remove error style
+        const addBtn = document.getElementById('add-player');
+        if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.classList.remove('btn-error-flash');
         }
     });
 }
@@ -987,39 +1030,80 @@ function handleCardInput(input) {
 }
 
 function updateCardDisplays() {
-    // Update player hand displays
+    // -------- Player hand displays --------
+    // Gather all entered cards to check for duplicates
+    const allInputs = Array.from(document.querySelectorAll('.card-input, .community-card'));
+    const cardCounts = {};
+    allInputs.forEach(input => {
+        const card = input.value.toUpperCase();
+        if (isValidCard(card)) {
+            cardCounts[card] = (cardCounts[card] || 0) + 1;
+        }
+    });
+
     document.querySelectorAll('.player-hand').forEach(playerHand => {
         const inputs = playerHand.querySelectorAll('.card-input');
         const handCards = playerHand.querySelector('.hand-cards');
         handCards.innerHTML = '';
-        
+
+        let validCount = 0;
         inputs.forEach(input => {
             const card = input.value.toUpperCase();
-            if (isValidCard(card)) {
+            if (isValidCard(card) && cardCounts[card] === 1) {
                 const img = document.createElement('img');
                 img.src = `/static/img/cards/PNG/${card}.png`;
                 img.alt = card;
                 img.className = 'card-image';
                 handCards.appendChild(img);
+                validCount++;
+            } else if (isValidCard(card) && cardCounts[card] > 1) {
+                // Duplicate: show red placeholder
+                const img = document.createElement('img');
+                img.src = '/static/img/cards/PNG/blue_back.png';
+                img.alt = 'Duplicate card';
+                img.className = 'card-image undealt';
+                img.style.filter = 'grayscale(40%) brightness(0.7) sepia(1) hue-rotate(-50deg) saturate(6)';
+                handCards.appendChild(img);
+                validCount++;
             }
         });
+
+        // Add card back placeholders for remaining slots (up to 2)
+        for (let i = validCount; i < 2; i++) {
+            const img = document.createElement('img');
+            img.src = '/static/img/cards/PNG/blue_back.png';
+            img.alt = 'Card back';
+            img.className = 'card-image undealt';
+            handCards.appendChild(img);
+        }
     });
 
-    // Update community card displays
+    // -------- Community card displays --------
     const communityInputs = document.querySelectorAll('.community-card');
     const communityDisplay = document.createElement('div');
     communityDisplay.className = 'community-display';
-    
+
+    let communityValid = 0;
     communityInputs.forEach(input => {
         const card = input.value.toUpperCase();
-        if (isValidCard(card)) {
+        if (isValidCard(card) && cardCounts[card] === 1) {
             const img = document.createElement('img');
             img.src = `/static/img/cards/PNG/${card}.png`;
             img.alt = card;
             img.className = 'card-image';
             communityDisplay.appendChild(img);
+            communityValid++;
         }
     });
+
+    // Add placeholders to reach 5 community cards
+    for (let i = communityValid; i < 5; i++) {
+        const img = document.createElement('img');
+        img.src = '/static/img/cards/PNG/blue_back.png';
+        img.alt = 'Card back';
+        img.className = 'card-image undealt';
+        communityDisplay.appendChild(img);
+    }
 
     // Replace or append the community display
     const communitySection = document.querySelector('.community-cards-section');
@@ -1057,8 +1141,8 @@ function createCardElement(cardStr) {
 }
 
 function addPlayer() {
-    if (playerCount >= 4) {
-        showMessage('Maximum 4 hands allowed', 'error');
+    if (playerCount >= 10) {
+        showMessage('Maximum 10 hands allowed', 'error');
         return;
     }
     
@@ -1088,6 +1172,9 @@ function addPlayer() {
     
     // Check for scroll overflow after adding new player
     checkSimulatorScrollOverflow();
+
+    // Render placeholders for new player
+    updateCardDisplays();
 }
 
 function removePlayer(button) {
@@ -1110,6 +1197,9 @@ function removePlayer(button) {
     
     // Check for scroll overflow after removing player
     checkSimulatorScrollOverflow();
+
+    // Refresh placeholders
+    updateCardDisplays();
 }
 
 function collectPlayerHands() {

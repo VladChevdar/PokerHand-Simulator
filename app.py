@@ -300,7 +300,8 @@ def generate_hands():
                 'strength': calculate_hand_strength(hand),
                 'price': buy_prices[i] if i < len(buy_prices) else 0,
                 'sell_price': sell_prices[i] if i < len(sell_prices) else 0,
-                'probability': probabilities[i] if i < len(probabilities) else 0
+                'probability': probabilities[i] if i < len(probabilities) else 0,
+                'hand_type': get_hand_type([hand], [])[0]
             })
         
         # Store deck for auto dealing
@@ -721,24 +722,21 @@ def get_hand_type(player_hands, community_cards):
             card_treys = card[0] + card[1].lower()
             community_eval.append(Card.new(card_treys))
         
-        # Only evaluate if we have at least 3 community cards (flop)
         if len(community_cards) >= 3:
+            # Post-flop (at least 3 community cards) – use treys evaluator for full 5-card analysis
             try:
-                # The treys evaluator.evaluate() function will automatically find the best 5-card hand
-                # from the player's 2 cards + community cards, even if there are fewer than 5 community cards
                 hand_score = evaluator.evaluate(hand_eval, community_eval)
                 hand_rank = evaluator.get_rank_class(hand_score)
                 hand_name = HAND_RANKS.get(hand_rank, "Unknown")
-                
-                # Debug: print the actual cards being evaluated
-                print(f"Player hand: {hand}, Community: {community_cards}, Score: {hand_score}, Rank: {hand_rank}, Name: {hand_name}")
-                
-            except Exception as e:
-                print(f"Error evaluating hand {hand} with community {community_cards}: {e}")
+            except Exception:
                 hand_name = "High Card"
         else:
-            # Pre-flop or not enough community cards yet
-            hand_name = "Pre-flop"
+            # Pre-flop – only 2 hole cards available. Classify basic categories.
+            rank1, rank2 = hand[0][0], hand[1][0]
+            if rank1 == rank2:
+                hand_name = "Pair"
+            else:
+                hand_name = "High Card"
         
         hand_types.append({
             'name': hand_name

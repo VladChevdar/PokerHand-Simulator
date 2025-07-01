@@ -17,6 +17,35 @@
             <p class="subtitle">Buy and sell poker hands as the community cards are revealed!</p>
         </header>
 
+        <!-- Help Section (moved above balance) -->
+        <button id="toggle-help" class="btn btn-secondary" style="margin: 24px auto 0; display: block;">Show How to Play</button>
+        <div class="help-section" id="help-section" style="display: none;">
+            <h3>💡 How to play <button id="hide-help" class="btn btn-danger" style="margin-left: 16px; font-size: 0.9rem; padding: 2px 10px;">Hide</button></h3>
+            <div class="help-content">
+                <div class="help-item">
+                    <strong>🎮 Trading Game:</strong> Click "Generate New Hands" (choose 2-10 hands) to start a round. The $10 table fee is taken immediately.
+                </div>
+                <div class="help-item">
+                    <strong>💲 Pricing:</strong> Hand prices are based on win probability with ±20% random variation. Better hands cost more but have lower potential returns.
+                </div>
+                <div class="help-item">
+                    <strong>🛒 Buying a Hand:</strong> Buy exactly one hand by paying its listed price. You can hold only one hand at a time.
+                </div>
+                <div class="help-item">
+                    <strong>➡️ Dealing the Board:</strong> Use the Deal Flop / Turn / River button to reveal community cards. Prices update after every street.
+                </div>
+                <div class="help-item">
+                    <strong>💰 Selling:</strong> Sell whenever you like for the current sell price with no fees. After the river your hand is automatically sold.
+                </div>
+                <div class="help-item">
+                    <strong>🔄 New Round &amp; Refunds:</strong> After your hand is sold, hit "Generate New Hands" to play again. Your sale proceeds are already in your balance.
+                </div>
+                <div class="help-item">
+                    <strong>⚡ Leverage Trading:</strong> Set leverage from 1x to 10x to amplify your gains and losses. With 2x leverage, a $10 gain becomes $20, but a $10 loss becomes $20 too!
+                </div>
+            </div>
+        </div>
+
         <!-- Game State Display -->
         <div class="game-state">
             <div class="game-state-left"><!-- Empty left section --></div>
@@ -32,15 +61,13 @@
 
         <!-- Trading Game Section -->
         <div class="trading-section">
-            <div class="trading-header">
-                <h2>Poker Trading ♠️&nbsp;&nbsp;📈</h2>
-            </div>
+            <!-- Removed Poker Trading header -->
 
             <!-- Controls moved below -->
 
             <!-- Board (Flop, Turn, River) -->
             <div class="community-section">
-                <h3>Texas Hold'em</h3>
+                <h2 class="texas-header">Texas Hold'em</h2>
                 <div id="community-cards-display" class="community-cards-display">
                     <p class="no-community">No board cards yet</p>
                 </div>
@@ -51,15 +78,14 @@
 
             <!-- Available Hands -->
             <div id="available-hands" class="available-hands">
-                <h3>Available Hands to Buy</h3>
-                <div class="trading-controls">
-                    <div class="players-control">
-                        <label for="num-players-slider">Number of Hands: <span id="num-players-value">3</span></label>
-                        <input type="range" id="num-players-slider" min="2" max="10" value="3">
-                    </div>
+                <div class="trading-controls centered-controls">
                     <div class="leverage-control">
                         <label for="leverage-slider">Leverage: <span id="leverage-value">1x</span></label>
                         <input type="range" id="leverage-slider" min="1" max="10" value="1">
+                    </div>
+                    <div class="players-control">
+                        <label for="num-players-slider">Number of Hands: <span id="num-players-value">3</span></label>
+                        <input type="range" id="num-players-slider" min="2" max="10" value="3">
                     </div>
                     <button id="generate-hands" class="btn btn-primary" title="Sell your current hand before generating new ones">🎲 Generate New Hands</button>
                 </div>
@@ -85,54 +111,30 @@
             </div>
         </div>
 
-        <!-- Help Section -->
-        <div class="help-section">
-            <h3>💡 How to play</h3>
+        <!-- Simulation Tips Section (hidden by default) -->
+        <button id="toggle-sim-tips" class="btn btn-secondary" style="margin: 32px auto 0; display: block;">Show Simulation Tips</button>
+        <div class="help-section" id="sim-tips-section" style="display: none; margin-bottom: 0;">
+            <h3>💡 Simulation Tips <button id="hide-sim-tips" class="btn btn-danger" style="margin-left: 16px; font-size: 0.9rem; padding: 2px 10px;">Hide</button></h3>
             <div class="help-content">
-                <div class="help-item">
-                    <strong>🎮 Trading Game:</strong> Click "Generate New Hands" (choose 2-10 hands) to start a round. The $10 table fee is taken immediately.
-                </div>
-                <div class="help-item">
-                    <strong>💲 Pricing:</strong> Hand prices are based on win probability with ±20% random variation. Better hands cost more but have lower potential returns.
-                </div>
-                <div class="help-item">
-                    <strong>🛒 Buying a Hand:</strong> Buy exactly one hand by paying its listed price. You can hold only one hand at a time.
-                </div>
-                <div class="help-item">
-                    <strong>➡️ Dealing the Board:</strong> Use the Deal Flop / Turn / River button to reveal community cards. Prices update after every street.
-                </div>
-                <div class="help-item">
-                    <strong>💰 Selling:</strong> Sell whenever you like for the current sell price with no fees. After the river your hand is automatically sold.
-                </div>
-                <div class="help-item">
-                    <strong>🔄 New Round &amp; Refunds:</strong> After your hand is sold, hit "Generate New Hands" to play again. Your sale proceeds are already in your balance.
-                </div>
-                <div class="help-item">
-                    <strong>⚡ Leverage Trading:</strong> Set leverage from 1x to 10x to amplify your gains and losses. With 2x leverage, a $10 gain becomes $20, but a $10 loss becomes $20 too!
-                </div>
-                <!--
                 <div class="help-item">
                     <strong>🔬 Simulator:</strong> Use the Hand Simulator below to run custom probability calculations.
                 </div>
                 <div class="help-item">
-                    <strong>Card Format:</strong> Use 2-character strings: Rank + Suit
-                    <br>Ranks: 2-9, T (10), J, Q, K, A
-                    <br>Suits: H (♥), D (♦), C (♣), S (♠)
+                    <strong>Card Format:</strong> Use 2-character strings: Rank + Suit<br>
+                    Ranks: 2-9, T (10), J, Q, K, A<br>
+                    Suits: H (♥), D (♦), C (♣), S (♠)
                 </div>
-                -->
             </div>
         </div>
 
-
         <!-- Original Simulator Section -->
-        <!--
         <div class="simulator-section">
             <h2>🎲 Hand Simulator</h2>
             <p>Calculate win probabilities for custom hands</p>
             
             <div class="setup-section">
                 <div class="card-input-section">
-                    <h2>Hands</h2>
+                    <h2>Create Hands</h2>
                     <div class="hands-scroll-wrapper" id="simulator-hands-scroll-wrapper">
                         <div id="player-hands" class="player-hands">
                             <div class="player-hand" data-player="1">
@@ -164,8 +166,10 @@
                         </div>
                     </div>
                     <div class="scroll-hint">← Scroll horizontally to see more hands →</div>
-                    <button id="add-player" class="btn btn-secondary">+ Add Hand</button>
-                    <button id="clear-simulator" class="btn btn-danger">🗑️ Clear All</button>
+                    <div class="simulator-buttons">
+                        <button id="add-player" class="btn btn-secondary">+ Add Hand</button>
+                        <button id="clear-simulator" class="btn btn-danger">🗑️ Clear All</button>
+                    </div>
                 </div>
 
                 <div class="community-cards-section">
@@ -195,7 +199,6 @@
                 <div id="results-content"></div>
             </div>
         </div>
-        -->
     </div>
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
