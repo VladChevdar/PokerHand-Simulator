@@ -7,7 +7,8 @@ let gameState = {
     gameHistory: [],
     sessionProfit: 0,               // Track profit for current trading session (computed dynamically)
     sessionStartBalance: 0,         // Balance after last "Generate Hands" action
-    previousPrices: []              // Track previous prices for animation
+    previousPrices: [],             // Track previous prices for animation
+    leverage: 1                     // Current leverage multiplier (1x to 10x)
 };
 
 // Card validation and display logic
@@ -76,6 +77,21 @@ document.addEventListener('DOMContentLoaded', function() {
         label.textContent = slider.value;
         slider.addEventListener('input', function() {
             label.textContent = slider.value;
+        });
+    }
+
+    // Setup leverage slider
+    const leverageSlider = document.getElementById('leverage-slider');
+    const leverageLabel = document.getElementById('leverage-value');
+    if (leverageSlider && leverageLabel) {
+        leverageSlider.addEventListener('input', function() {
+            const leverage = parseInt(this.value);
+            leverageLabel.textContent = `${leverage}x`;
+            
+            // Update leverage if no hand is owned
+            if (gameState.ownedHand === null) {
+                setLeverage(leverage);
+            }
         });
     }
 
@@ -190,12 +206,53 @@ async function loadGameState() {
         gameState.balance = data.balance;
         gameState.ownedHand = data.owned_hand;
         gameState.gameHistory = data.game_history || [];
+        gameState.leverage = data.leverage || 1;
         if (!gameState.sessionStartBalance) {
             gameState.sessionStartBalance = data.balance;
         }
+        
+        // Update leverage slider to match game state
+        const leverageSlider = document.getElementById('leverage-slider');
+        const leverageLabel = document.getElementById('leverage-value');
+        if (leverageSlider && leverageLabel) {
+            leverageSlider.value = gameState.leverage;
+            leverageLabel.textContent = `${gameState.leverage}x`;
+        }
+        
         updateUI();
     } catch (error) {
         console.error('Error loading game state:', error);
+    }
+}
+
+async function setLeverage(leverage) {
+    try {
+        const response = await fetch('/api/set-leverage', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ leverage: leverage })
+        });
+        
+        const data = await response.json();
+        
+        if (data.error) {
+            showMessage(data.error, 'error');
+            // Reset slider to current leverage on error
+            const leverageSlider = document.getElementById('leverage-slider');
+            const leverageLabel = document.getElementById('leverage-value');
+            if (leverageSlider && leverageLabel) {
+                leverageSlider.value = gameState.leverage;
+                leverageLabel.textContent = `${gameState.leverage}x`;
+            }
+            return;
+        }
+        
+        gameState.leverage = data.leverage;
+        updateUI();
+    } catch (error) {
+        showMessage('Error setting leverage: ' + error.message, 'error');
     }
 }
 
@@ -242,7 +299,7 @@ async function generateNewHands() {
         gameState.ownedHand = null;
         gameState.gameHistory = data.game_history || gameState.gameHistory;
         
-        // Baseline should be balance BEFORE the $10 generate fee so that session profit starts at -10
+        // Baseline should be balance BEFORE the $10 generate fee so profit starts at -$10
         gameState.sessionStartBalance = data.balance + 10;
         gameState.sessionProfit = 0;
         
@@ -284,10 +341,11 @@ async function buyHand(playerIndex, price) {
         // Don't update session profit on buy - will be calculated when cards are dealt
         
         updateUI();
+        const leverageText = data.leverage > 1 ? ` with ${data.leverage}x leverage` : '';
         if (data.refund_amount && data.refund_amount > 0) {
-            showMessage(`Refunded $${data.refund_amount} for previous hand and bought Hand ${playerIndex + 1} for $${price}!`, 'success');
+            showMessage(`Refunded $${data.refund_amount} for previous hand and bought Hand ${playerIndex + 1} for $${price}${leverageText}!`, 'success');
         } else {
-            showMessage(`Successfully bought Hand ${playerIndex + 1} for $${price}!`, 'success');
+            showMessage(`Successfully bought Hand ${playerIndex + 1} for $${price}${leverageText}!`, 'success');
         }
     } catch (error) {
         showMessage('Error buying hand: ' + error.message, 'error');
@@ -313,6 +371,11 @@ async function sellHand() {
             body: JSON.stringify({ current_price: currentPrice })
         });
         
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server error: ${response.status} - ${errorText}`);
+        }
+        
         const data = await response.json();
         
         if (data.error) {
@@ -329,10 +392,21 @@ async function sellHand() {
         // No need to add anything here as the profit from price changes is already in sessionProfit
         
         updateUI();
-        if (currentPrice > 0) {
-            showMessage(`Successfully sold hand for $${currentPrice}!`, 'success');
+        
+        // Show leveraged profit/loss information
+        const leverageText = data.leverage > 1 ? ` (${data.leverage}x leverage)` : '';
+        const actualPayout = data.transaction?.actual_payout || currentPrice;
+        const leveragedProfitLoss = data.transaction?.leveraged_profit_loss;
+        
+        if (actualPayout > 0) {
+            if (leveragedProfitLoss !== null && leveragedProfitLoss !== undefined) {
+                const profitLossText = leveragedProfitLoss >= 0 ? `+$${leveragedProfitLoss}` : `-$${Math.abs(leveragedProfitLoss)}`;
+                showMessage(`Hand sold for $${actualPayout}! Net: ${profitLossText}${leverageText}`, 'success');
+            } else {
+                showMessage(`Successfully sold hand for $${actualPayout}!${leverageText}`, 'success');
+            }
         } else {
-            showMessage(`Hand sold for $0 - better luck next time!`, 'success');
+            showMessage(`Hand sold for $0 - better luck next time!${leverageText}`, 'success');
         }
     } catch (error) {
         showMessage('Error selling hand: ' + error.message, 'error');
@@ -379,11 +453,20 @@ async function resetGame() {
         gameState.gameHistory = [];
         gameState.sessionProfit = 0; // Reset session profit to 0
         gameState.sessionStartBalance = data.balance;
+        gameState.leverage = data.leverage || 1; // Reset leverage
         
         // Clear UI
         document.getElementById('hands-container').innerHTML = '<p class="no-hands">Click "Generate New Hands" to start trading!</p>';
         document.getElementById('community-cards-display').innerHTML = '<p class="no-community">No board cards yet</p>';
         document.getElementById('transaction-history').innerHTML = '<p class="no-history">No transactions yet</p>';
+        
+        // Reset leverage slider
+        const leverageSlider = document.getElementById('leverage-slider');
+        const leverageLabel = document.getElementById('leverage-value');
+        if (leverageSlider && leverageLabel) {
+            leverageSlider.value = gameState.leverage;
+            leverageLabel.textContent = `${gameState.leverage}x`;
+        }
         
         // Update UI
         updateUI();
@@ -414,11 +497,13 @@ function updateUI() {
     // Update balance display
     document.getElementById('current-balance').textContent = `$${gameState.balance}`;
     
-    // Dynamically calculate current session profit: (balance + value of owned hand) - sessionStartBalance
+    // Calculate session profit based on actual cash transactions only
+    // Include value of owned hand so profit remains unchanged after purchase but reflects price changes
     let ownedValue = 0;
     if (gameState.ownedHand !== null && gameState.currentHands[gameState.ownedHand]) {
         const ownedHandData = gameState.currentHands[gameState.ownedHand];
-        ownedValue = ownedHandData.sell_price !== undefined ? ownedHandData.sell_price : (ownedHandData.price || 0);
+        const baseValue = ownedHandData.sell_price !== undefined ? ownedHandData.sell_price : (ownedHandData.price || 0);
+        ownedValue = baseValue * (gameState.leverage || 1);
     }
     const currentProfit = (gameState.balance + ownedValue) - gameState.sessionStartBalance;
     gameState.sessionProfit = currentProfit; // Keep in state for debugging
@@ -453,6 +538,17 @@ function updateUI() {
     } else {
         generateBtn.disabled = false;
         generateBtn.title = 'Generate new hands to trade';
+    }
+    
+    // Enable/disable leverage slider based on hand ownership
+    const leverageSlider = document.getElementById('leverage-slider');
+    if (leverageSlider) {
+        leverageSlider.disabled = gameState.ownedHand !== null;
+        if (gameState.ownedHand !== null) {
+            leverageSlider.title = 'Cannot change leverage while owning a hand';
+        } else {
+            leverageSlider.title = 'Set leverage multiplier (1x to 10x)';
+        }
     }
     
     // Enable/disable Next Card button
@@ -529,10 +625,19 @@ function updateHandsDisplay(animatePrices = false) {
             }
         }
         
+        // Calculate leveraged amounts for display
+        const leverage = gameState.leverage || 1;
+        const baseBuyPrice = hand.price;
+        const displayBuyPrice = baseBuyPrice * leverage; // Leveraged cost for buying
+        const leveragedSellPrice = hand.sell_price || hand.price;
+        
+        // Show leverage info if > 1x
+        const leverageDisplay = leverage > 1 ? ` (${leverage}x)` : '';
+        
         handElement.innerHTML = `
             <div class="hand-header">
                 <span class="hand-title">Hand ${index + 1}</span>
-                <span class="hand-price ${priceChangeClass}">$${hand.price}</span>
+                <span class="hand-price ${priceChangeClass}">$${displayBuyPrice}</span>
             </div>
             <div class="hand-cards">
                 ${hand.cards.map(card => `
@@ -548,10 +653,10 @@ function updateHandsDisplay(animatePrices = false) {
             <div class="hand-actions">
                 ${isOwned ? 
                     `<button class="btn btn-warning ${sellPriceChangeClass}" onclick="sellHand()" ${gameState.communityCards.length === 5 ? 'disabled' : ''}>
-                        ${gameState.communityCards.length === 5 ? 'Game Complete' : `Sell for $${hand.sell_price}`}
+                        ${gameState.communityCards.length === 5 ? 'Game Complete' : 'Sell'}
                     </button>` :
-                    `<button class="btn btn-primary" onclick="buyHand(${index}, ${hand.price})" ${gameState.ownedHand !== null || gameState.communityCards.length === 5 ? 'disabled' : ''}>
-                        ${gameState.communityCards.length === 5 ? 'Game Complete' : `Buy for $${hand.price}`}
+                    `<button class="btn btn-primary" onclick="buyHand(${index}, ${baseBuyPrice})" ${gameState.ownedHand !== null || gameState.communityCards.length === 5 ? 'disabled' : ''}>
+                        ${gameState.communityCards.length === 5 ? 'Game Complete' : 'Buy'}
                     </button>`
                 }
             </div>
@@ -707,11 +812,12 @@ function updateTransactionHistory() {
             }
         };
 
-        const getActionText = (action, player) => {
+        const getActionText = (action, player, leverage) => {
+            const leverageText = leverage && leverage > 1 ? ` (${leverage}x)` : '';
             switch(action) {
-                case 'buy': return `BUY Hand ${player}`;
-                case 'sell': return `SELL Hand ${player}`;
-                case 'refund': return `REFUND Hand ${player}`;
+                case 'buy': return `BUY Hand ${player}${leverageText}`;
+                case 'sell': return `SELL Hand ${player}${leverageText}`;
+                case 'refund': return `REFUND Hand ${player}${leverageText}`;
                 case 'generate': return 'GENERATE Hands';
                 default: return action;
             }
@@ -723,14 +829,22 @@ function updateTransactionHistory() {
             <div class="transaction-item">
                 <div class="transaction-left">
                     <div class="transaction-action ${transaction.action.toLowerCase()}">
-                        ${getActionIcon(transaction.action)} ${getActionText(transaction.action, transaction.player)}
+                        ${getActionIcon(transaction.action)} ${getActionText(transaction.action, transaction.player, transaction.leverage)}
                     </div>
                     <div class="transaction-time" style="font-size: 0.8em; color: #666;">
                         ${timestamp}
                     </div>
                 </div>
                 <div class="transaction-amount ${transaction.action.toLowerCase() === 'sell' || transaction.action.toLowerCase() === 'refund' ? 'positive' : 'negative'}">
-                    ${transaction.action.toLowerCase() === 'sell' || transaction.action.toLowerCase() === 'refund' ? '+' : '-'}$${transaction.price}
+                    ${(() => {
+                        if (transaction.action.toLowerCase() === 'sell' && transaction.actual_payout !== undefined) {
+                            return `+$${transaction.actual_payout}`;
+                        } else if (transaction.action.toLowerCase() === 'sell' || transaction.action.toLowerCase() === 'refund') {
+                            return `+$${transaction.price}`;
+                        } else {
+                            return `-$${transaction.price}`;
+                        }
+                    })()}
                 </div>
             </div>
         `;
@@ -1186,6 +1300,11 @@ async function nextCommunityCard() {
         return;
     }
     
+    if (!gameState.currentHands || gameState.currentHands.length === 0) {
+        showMessage('No hands available. Please generate hands first.', 'error');
+        return;
+    }
+    
     try {
         // Store the current state before dealing new card
         const oldSellPrice = gameState.currentHands[gameState.ownedHand].sell_price || 
@@ -1202,6 +1321,11 @@ async function nextCommunityCard() {
         });
         
         const data = await response.json();
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server error: ${response.status} - ${errorText}`);
+        }
         
         if (data.error) {
             showMessage(data.error, 'error');
@@ -1230,19 +1354,8 @@ async function nextCommunityCard() {
         updateCommunityCardsDisplay(true, previousCardCount);
         updateTransactionHistory();
         
-        // Update other UI elements
-        document.getElementById('current-balance').textContent = `$${gameState.balance}`;
-        let ownedValue = 0;
-        if (gameState.ownedHand !== null && gameState.currentHands[gameState.ownedHand]) {
-            const ownedHandData = gameState.currentHands[gameState.ownedHand];
-            ownedValue = ownedHandData.sell_price !== undefined ? ownedHandData.sell_price : (ownedHandData.price || 0);
-        }
-        const currentProfit = (gameState.balance + ownedValue) - gameState.sessionStartBalance;
-        gameState.sessionProfit = currentProfit;
-        const profitDisplay = document.getElementById('session-profit');
-        const profitText = currentProfit >= 0 ? `+$${currentProfit}` : `-$${Math.abs(currentProfit)}`;
-        profitDisplay.textContent = profitText;
-        profitDisplay.className = `session-profit ${currentProfit >= 0 ? 'profit' : 'loss'}`;
+        // Update all UI elements
+        updateUI();
         
         // Update button state after a delay to allow for animation
         setTimeout(() => {

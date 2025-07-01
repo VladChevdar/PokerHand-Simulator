@@ -34,14 +34,9 @@
         <div class="trading-section">
             <div class="trading-header">
                 <h2>Poker Trading ♠️&nbsp;&nbsp;📈</h2>
-                <div class="trading-controls">
-                    <div class="players-control">
-                        <label for="num-players-slider">Number of Hands: <span id="num-players-value">3</span></label>
-                        <input type="range" id="num-players-slider" min="2" max="10" value="3">
-                    </div>
-                    <button id="generate-hands" class="btn btn-primary" title="Sell your current hand before generating new ones">🎲 Generate New Hands</button>
-                </div>
             </div>
+
+            <!-- Controls moved below -->
 
             <!-- Board (Flop, Turn, River) -->
             <div class="community-section">
@@ -57,6 +52,17 @@
             <!-- Available Hands -->
             <div id="available-hands" class="available-hands">
                 <h3>Available Hands to Buy</h3>
+                <div class="trading-controls">
+                    <div class="players-control">
+                        <label for="num-players-slider">Number of Hands: <span id="num-players-value">3</span></label>
+                        <input type="range" id="num-players-slider" min="2" max="10" value="3">
+                    </div>
+                    <div class="leverage-control">
+                        <label for="leverage-slider">Leverage: <span id="leverage-value">1x</span></label>
+                        <input type="range" id="leverage-slider" min="1" max="10" value="1">
+                    </div>
+                    <button id="generate-hands" class="btn btn-primary" title="Sell your current hand before generating new ones">🎲 Generate New Hands</button>
+                </div>
                 <div class="hands-scroll-wrapper" id="hands-scroll-wrapper">
                     <div id="hands-container" class="hands-container">
                         <p class="no-hands">Click "Generate New Hands" to start trading!</p>
@@ -100,6 +106,9 @@
                 </div>
                 <div class="help-item">
                     <strong>🔄 New Round &amp; Refunds:</strong> After your hand is sold, hit "Generate New Hands" to play again. Your sale proceeds are already in your balance.
+                </div>
+                <div class="help-item">
+                    <strong>⚡ Leverage Trading:</strong> Set leverage from 1x to 10x to amplify your gains and losses. With 2x leverage, a $10 gain becomes $20, but a $10 loss becomes $20 too!
                 </div>
                 <div class="help-item">
                     <strong>🔬 Simulator:</strong> Use the Hand Simulator below to run custom probability calculations.

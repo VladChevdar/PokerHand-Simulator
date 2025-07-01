@@ -3,9 +3,15 @@ import random
 from treys import Card, Deck, Evaluator
 import json
 from datetime import datetime
+import os
+import tempfile
 
 app = Flask(__name__)
 app.secret_key = 'poker_trading_game_secret_key'
+
+# Use standard Flask sessions but with a larger cookie limit
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max content
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Map short input like "8H" to proper treys format "8h", and Unicode output
 SUIT_SYMBOLS = {'H': '♥', 'D': '♦', 'C': '♣', 'S': '♠', 'h': '♥', 'd': '♦', 'c': '♣', 's': '♠'}
@@ -13,7 +19,7 @@ VALID_RANKS = "23456789TJQKA"
 VALID_SUITS = "shdc"
 
 # Game constants
-STARTING_BALANCE = 500
+STARTING_BALANCE = 1000
 TRANSACTION_FEE_FLAT = 0  # No fee on buy
 GENERATE_HANDS_FEE = 10
 FEE = 0  # No buy/sell fee anymore
@@ -89,6 +95,30 @@ def calculate_hand_price(strength, community_cards=[]):
         base_price = round(base_price * adjustment)
     
     return int(base_price)
+
+def validate_session_state():
+    """Validate and clean up session state if needed"""
+    if 'balance' not in session:
+        session['balance'] = STARTING_BALANCE
+    if 'owned_hand' not in session:
+        session['owned_hand'] = None
+    if 'game_history' not in session:
+        session['game_history'] = []
+    if 'leverage' not in session:
+        session['leverage'] = 1
+    
+    # Clean up orphaned state
+    hands = session.get('hands', [])
+    owned_hand = session.get('owned_hand')
+    
+    if owned_hand is not None and (not hands or owned_hand >= len(hands)):
+        session['owned_hand'] = None
+        
+    # Limit game history to last 20 transactions to reduce session size
+    if len(session.get('game_history', [])) > 20:
+        session['game_history'] = session['game_history'][-20:]
+        
+    return True
 
 def simulate_win_probabilities(player_hands, community_cards=[], simulations=10000):
     num_players = len(player_hands)
@@ -175,23 +205,19 @@ def generate_random_hands(num_players=6):
 
 @app.route('/')
 def index():
-    # Initialize session if needed
-    if 'balance' not in session:
-        session['balance'] = STARTING_BALANCE
-    if 'owned_hand' not in session:
-        session['owned_hand'] = None
-    if 'game_history' not in session:
-        session['game_history'] = []
-    
+    # Initialize and validate session state
+    validate_session_state()
     return render_template('index.html', balance=session['balance'])
 
 @app.route('/api/game-state')
 def get_game_state():
     """Get current game state including balance and owned hand"""
+    validate_session_state()
     return jsonify({
         'balance': session.get('balance', STARTING_BALANCE),
         'owned_hand': session.get('owned_hand'),
-        'game_history': session.get('game_history', [])
+        'game_history': session.get('game_history', []),
+        'leverage': session.get('leverage', 1)
     })
 
 @app.route('/api/generate-hands', methods=['POST'])
@@ -201,22 +227,39 @@ def generate_hands():
     num_players = data.get('num_players', 6)
     
     try:
+        # Validate session state first
+        validate_session_state()
+        
         balance = int(session.get('balance', STARTING_BALANCE))
         current_owned_hand = session.get('owned_hand')
         
-        # Calculate refund for current hand if owned (use current market value)
+        # If user already owns a hand, refund the previous hand at its current sell price * leverage used for that hand
         refund_amount = 0
         if current_owned_hand is not None:
-            # Use current market value (sell price) for refund
-            hands = session.get('hands', [])
-            if hands and current_owned_hand < len(hands):
-                _, sell_prices, _ = get_dynamic_hand_prices_and_probs()
-                if current_owned_hand < len(sell_prices):
-                    refund_amount = sell_prices[current_owned_hand]
-                else:
-                    refund_amount = 0
-            else:
-                refund_amount = 0
+            prev_hand_index = current_owned_hand
+            prev_hands = session.get('hands', [])
+            # Find the leverage used for the previous hand from transaction history
+            prev_leverage = 1
+            for transaction in reversed(session.get('game_history', [])):
+                if transaction['action'] == 'buy' and transaction['player'] == prev_hand_index + 1:
+                    prev_leverage = transaction.get('leverage', 1)
+                    break
+            if prev_hand_index is not None and prev_hand_index < len(prev_hands):
+                prev_hand = prev_hands[prev_hand_index]
+                prev_sell_price = get_dynamic_hand_prices_and_probs()[1][prev_hand_index]
+                refund_amount = prev_sell_price * prev_leverage
+                session['balance'] += refund_amount
+                # Add refund transaction
+                game_history = session.get('game_history', [])
+                game_history.append({
+                    'action': 'refund',
+                    'player': prev_hand_index + 1,
+                    'price': refund_amount,
+                    'balance': session['balance'],
+                    'timestamp': datetime.now().isoformat(),
+                    'leverage': prev_leverage
+                })
+                session['game_history'] = game_history
         
         # Calculate total cost (fee - refund)
         total_cost = GENERATE_HANDS_FEE - refund_amount
@@ -230,15 +273,6 @@ def generate_hands():
         game_history = session.get('game_history', [])
         timestamp = datetime.now().isoformat()
         
-        if refund_amount > 0:
-            game_history.append({
-                'action': 'refund',
-                'player': current_owned_hand + 1 if current_owned_hand is not None else None,
-                'price': refund_amount,
-                'balance': balance,
-                'timestamp': timestamp
-            })
-            
         game_history.append({
             'action': 'generate',
             'player': None,
@@ -311,11 +345,29 @@ def buy_hand():
     price = data.get('price')
     
     try:
+        validate_session_state()
+        
+        if not session.get('hands'):
+            return jsonify({'error': 'No hands available. Please generate hands first.'}), 400
+            
+        hands = session.get('hands', [])
+        if player_index >= len(hands):
+            return jsonify({'error': 'Invalid hand selected.'}), 400
+            
+        if session.get('owned_hand') is not None:
+            return jsonify({'error': 'You already own a hand. Sell it first.'}), 400
+        
         balance = session.get('balance', STARTING_BALANCE)
-        if balance < price:
+        leverage = session.get('leverage', 1)
+        
+        # Calculate the actual cost (leveraged amount)
+        # With 2x leverage on a $50 hand, you pay $100
+        leveraged_cost = price * leverage
+        
+        if balance < leveraged_cost:
             return jsonify({'error': 'Insufficient funds'}), 400
         
-        session['balance'] = balance - price
+        session['balance'] = balance - leveraged_cost
         session['owned_hand'] = player_index
         
         # Get hand details and current state
@@ -334,14 +386,11 @@ def buy_hand():
         game_history.append({
             'action': 'buy',
             'player': player_index + 1,
-            'price': price,
-            'balance': balance - price,
+            'price': leveraged_cost,
+            'balance': balance - leveraged_cost,
             'timestamp': datetime.now().isoformat(),
-            'hand_cards': hands[player_index],
-            'community_cards': community_cards,
-            'win_probability': probabilities[player_index] if probabilities else None,
-            'hand_type': hand_type,
-            'market_prices': [{'hand': i+1, 'price': p} for i, p in enumerate(get_dynamic_hand_prices_and_probs()[0])]
+            'leverage': leverage,
+            'leveraged_cost': leveraged_cost
         })
         session['game_history'] = game_history
         
@@ -350,10 +399,13 @@ def buy_hand():
             'balance': int(session['balance']),
             'owned_hand': session['owned_hand'],
             'game_history': game_history,
+            'leverage': leverage,
             'transaction': {
                 'action': 'buy',
                 'player': player_index + 1,
-                'price': price,
+                'price': leveraged_cost,
+                'leverage': leverage,
+                'leveraged_cost': leveraged_cost,
                 'fee': 0  # No fee
             }
         })
@@ -369,9 +421,13 @@ def sell_hand():
     try:
         balance = session.get('balance', STARTING_BALANCE)
         owned_hand = session.get('owned_hand')
+        hands = session.get('hands', [])
         
         if owned_hand is None:
             return jsonify({'error': 'No hand owned'}), 400
+            
+        if not hands or owned_hand >= len(hands):
+            return jsonify({'error': 'Invalid hand state. Please generate new hands.'}), 400
         
         # Get hand details and current state
         hands = session.get('hands', [])
@@ -382,16 +438,27 @@ def sell_hand():
         hand_types = get_hand_type([hands[owned_hand]], community_cards)
         hand_type = hand_types[0]['name'] if hand_types else None
         
-        # Find the buy price from history to calculate profit/loss
+        # Find the buy price and leverage from history to calculate profit/loss
         buy_price = None
+        buy_leverage = 1
         for transaction in reversed(session.get('game_history', [])):
             if transaction['action'] == 'buy' and transaction['player'] == owned_hand + 1:
                 buy_price = transaction['price']
+                buy_leverage = transaction.get('leverage', 1)
                 break
         
-        profit_loss = current_price - buy_price if buy_price is not None else None
+        # Calculate leveraged profit/loss and actual payout
+        if buy_price is not None:
+            # Profit/Loss is difference times leverage
+            base_profit_loss = current_price - buy_price
+            leveraged_profit_loss = base_profit_loss * buy_leverage
+            # User receives the current price multiplied by leverage (they paid price*leverage when buying)
+            actual_payout = current_price * buy_leverage
+        else:
+            leveraged_profit_loss = None
+            actual_payout = current_price * buy_leverage
         
-        session['balance'] = balance + current_price
+        session['balance'] = balance + actual_payout
         session['owned_hand'] = None
         
         # Add transaction to history with timestamp and additional info
@@ -400,14 +467,11 @@ def sell_hand():
             'action': 'sell',
             'player': owned_hand + 1,
             'price': current_price,
-            'balance': balance + current_price,
+            'balance': balance + actual_payout,
             'timestamp': datetime.now().isoformat(),
-            'hand_cards': hands[owned_hand],
-            'community_cards': community_cards,
-            'win_probability': probabilities[owned_hand] if probabilities else None,
-            'hand_type': hand_type,
-            'profit_loss': profit_loss,
-            'market_prices': [{'hand': i+1, 'price': p} for i, p in enumerate(get_dynamic_hand_prices_and_probs()[0])]
+            'leverage': buy_leverage,
+            'leveraged_profit_loss': leveraged_profit_loss,
+            'actual_payout': actual_payout
         })
         session['game_history'] = game_history
         
@@ -416,10 +480,14 @@ def sell_hand():
             'balance': int(session['balance']),
             'owned_hand': session['owned_hand'],
             'game_history': game_history,
+            'leverage': buy_leverage,
             'transaction': {
                 'action': 'sell',
                 'player': owned_hand + 1,
                 'price': current_price,
+                'leverage': buy_leverage,
+                'leveraged_profit_loss': leveraged_profit_loss,
+                'actual_payout': actual_payout,
                 'fee': 0
             }
         })
@@ -427,17 +495,46 @@ def sell_hand():
         print(f"Error in sell_hand: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/api/set-leverage', methods=['POST'])
+def set_leverage():
+    """Set leverage multiplier (1x to 10x)"""
+    data = request.get_json()
+    leverage = data.get('leverage', 1)
+    
+    try:
+        validate_session_state()
+        
+        leverage = int(leverage)
+        if leverage < 1 or leverage > 10:
+            return jsonify({'error': 'Leverage must be between 1x and 10x'}), 400
+        
+        # Don't allow changing leverage while owning a hand
+        if session.get('owned_hand') is not None:
+            return jsonify({'error': 'Cannot change leverage while owning a hand'}), 400
+        
+        session['leverage'] = leverage
+        
+        return jsonify({
+            'success': True,
+            'leverage': session['leverage']
+        })
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Invalid leverage value'}), 400
+
 @app.route('/api/reset-game', methods=['POST'])
 def reset_game():
     """Reset the game state"""
-    session['balance'] = STARTING_BALANCE
-    session['owned_hand'] = None
-    session['game_history'] = []
+    # Clear all session data
+    session.clear()
+    
+    # Reinitialize with defaults
+    validate_session_state()
     
     return jsonify({
         'success': True,
         'balance': session['balance'],
-        'owned_hand': session['owned_hand']
+        'owned_hand': session['owned_hand'],
+        'leverage': session['leverage']
     })
 
 @app.route('/simulate', methods=['POST'])
@@ -532,6 +629,11 @@ def get_dynamic_hand_prices_and_probs():
 @app.route('/api/hand-prices')
 def hand_prices():
     """Return current hand prices and win probabilities"""
+    validate_session_state()
+    
+    if not session.get('hands'):
+        return jsonify({'buy_prices': [], 'sell_prices': [], 'probabilities': []})
+        
     buy_prices, sell_prices, probabilities = get_dynamic_hand_prices_and_probs()
     return jsonify({'buy_prices': buy_prices, 'sell_prices': sell_prices, 'probabilities': probabilities})
 
@@ -539,6 +641,10 @@ def hand_prices():
 def next_community():
     """Deal next community card(s) and update hand values"""
     try:
+        # Validate session state
+        if not session.get('hands'):
+            return jsonify({'error': 'No hands available. Please generate hands first.'}), 400
+            
         if session.get('owned_hand') is None:
             return jsonify({'error': 'Must own a hand to see community cards'}), 400
         
@@ -547,6 +653,9 @@ def next_community():
         
         if len(community_cards) >= 5:
             return jsonify({'error': 'All community cards are already dealt'}), 400
+            
+        if not deck:
+            return jsonify({'error': 'No cards left in deck. Please generate new hands.'}), 400
         
         # Deal appropriate number of cards
         if len(community_cards) == 0:

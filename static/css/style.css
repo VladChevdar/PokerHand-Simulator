@@ -194,6 +194,31 @@ body {
     vertical-align: middle;
 }
 
+.leverage-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+}
+
+.leverage-control label {
+    font-weight: 500;
+    color: #2d3748;
+    white-space: nowrap;
+}
+
+.leverage-control input[type="range"] {
+    width: 120px;
+    vertical-align: middle;
+}
+
+.leverage-control input[type="range"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+
+
 #generate-hands {
     margin-left: auto;
 }
@@ -1449,6 +1474,18 @@ body {
         text-align: center;
     }
 
+    .trading-controls {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+
+    .players-control, .leverage-control {
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+    }
+
     .hands-container {
         gap: 15px;
         padding: 5px 0;
@@ -1629,5 +1666,11 @@ body {
 }
 
 .hands-scroll-wrapper:not(.has-overflow) .hands-container {
+    justify-content: center;
+}
+
+#available-hands .trading-controls {
+    margin-bottom: 24px;
+    margin-top: 8px;
     justify-content: center;
 }
