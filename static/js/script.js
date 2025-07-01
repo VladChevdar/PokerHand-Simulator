@@ -1027,57 +1027,7 @@ function showMessage(message, type) {
         }
     }
 
-    // Ensure a visible message element exists (create lazily)
-    let msgContainer = document.getElementById('global-message-container');
-    if (!msgContainer) {
-        msgContainer = document.createElement('div');
-        msgContainer.id = 'global-message-container';
-        msgContainer.style.position = 'fixed';
-        msgContainer.style.top = '20px';
-        msgContainer.style.left = '50%';
-        msgContainer.style.transform = 'translateX(-50%)';
-        msgContainer.style.zIndex = '9999';
-        document.body.appendChild(msgContainer);
-    }
-
-    // Build alert element
-    const alert = document.createElement('div');
-    alert.className = 'message';
-    alert.style.background = type === 'error' ? '#fed7d7' : '#f7fafc';
-    alert.style.color = type === 'error' ? '#c53030' : '#2d3748';
-    alert.style.padding = '12px 24px';
-    alert.style.borderRadius = '8px';
-    alert.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-    alert.style.marginBottom = '10px';
-    alert.style.fontSize = '0.9rem';
-    alert.style.fontWeight = '500';
-    alert.style.display = 'flex';
-    alert.style.alignItems = 'center';
-    alert.style.gap = '8px';
-    alert.style.animation = 'slideIn 0.3s ease';
-    alert.style.maxWidth = '90vw';
-    alert.style.wordBreak = 'break-word';
-
-    // Add icon based on message type
-    const icon = document.createElement('span');
-    icon.textContent = type === 'error' ? '⚠️' : '✓';
-    alert.appendChild(icon);
-
-    // Add message text
-    const text = document.createElement('span');
-    text.textContent = message;
-    alert.appendChild(text);
-
-    // Add to container
-    msgContainer.appendChild(alert);
-
-    // Auto-dismiss after delay
-    setTimeout(() => {
-        alert.style.opacity = '0';
-        alert.style.transform = 'translateY(-10px)';
-        alert.style.transition = 'all 0.3s ease';
-        setTimeout(() => alert.remove(), 300);
-    }, 5000);
+    // Removed floating alert display per user request
 }
 
 // Original Simulator Functions (keeping for the simulator section)

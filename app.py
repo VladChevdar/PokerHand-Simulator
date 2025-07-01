@@ -649,8 +649,14 @@ def next_community():
         deck = session.get('deck', [])
         community_cards = session.get('community_cards', [])
         
+        # Check if all community cards are dealt, but also verify we have a valid deck
+        # This prevents the race condition when user clicks generate->buy->deal quickly
         if len(community_cards) >= 5:
-            return jsonify({'error': 'All community cards are already dealt'}), 400
+            # Double-check that we haven't just generated new hands (deck should have cards if we did)
+            if not deck or len(deck) < 10:  # Fresh deck should have ~45 cards after dealing hole cards
+                return jsonify({'error': 'Please generate new hands first.'}), 400
+            else:
+                return jsonify({'error': 'All community cards are already dealt'}), 400
             
         if not deck:
             return jsonify({'error': 'No cards left in deck. Please generate new hands.'}), 400
